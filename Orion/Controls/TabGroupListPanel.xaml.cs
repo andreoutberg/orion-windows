@@ -174,7 +174,7 @@ namespace Orion
             UnsavedGroupText.Visibility = Visibility.Visible;
         }
 
-        private void EndSavedEdit(StackPanel displayPanel, StackPanel editPanel, TextBox editBox,
+        private void EndSavedEdit(FrameworkElement displayPanel, StackPanel editPanel, TextBox editBox,
             TextBlock? shortcutLabel)
         {
             editBox.KeyDown -= EditBox_KeyDown;
