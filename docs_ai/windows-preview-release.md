@@ -36,7 +36,22 @@ The package includes the self-contained executable, a separate-profile launcher,
 license notices and `BUILDINFO.json`. Verify the ZIP against `SHA256SUMS.txt`,
 extract to a path containing spaces, launch the packaged preview, load a local
 page, and exercise fold, search, selection and relaunch before publishing.
-Keep this build in prerelease status and state the sandbox limitation in its
-release notes.
+
+## Stage a draft prerelease
+
+The **Windows preview package** workflow uploads the ZIP and `SHA256SUMS.txt`
+as the `orion-searchplus-win-x64` artifact on relevant pull requests. After
+review and merge to the fork's default branch, tag the reviewed commit with
+`v` followed by the version in `scripts/windows-preview.json`. Run the workflow
+against that tag with `draft_release` enabled.
+
+```powershell
+gh workflow run windows-preview.yml --ref v0.1.0-searchplus.1 -f draft_release=true
+```
+
+Check the draft's tag, attached checksum and ZIP's `BUILDINFO.json` against
+the reviewed commit. Keep this build in prerelease status and include the
+sandbox limitation in its release notes. Keep each preview in its own folder
+so you can switch back by launching the previous extracted package.
 
 [Search reference and MIT licence](https://github.com/driceroland/Search)

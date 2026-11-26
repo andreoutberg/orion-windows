@@ -43,7 +43,10 @@
                         Text="Ctrl+L" />
                 </StackPanel>
             </Button>
-            <StackPanel HorizontalAlignment="Center" Orientation="Horizontal" Spacing="8">
+            <StackPanel
+                HorizontalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="8">
                 <Button
                     Click="Favorite_Click"
                     Content="Orion Feedback"
