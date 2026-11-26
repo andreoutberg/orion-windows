@@ -295,7 +295,14 @@ namespace Orion
 
         private bool FocusAddressBar() => AddressBarTextBox.Focus(FocusState.Keyboard);
 
-        private void AddressBarTextBox_GotFocus(object sender, RoutedEventArgs e) => AddressBarTextBox.SelectAll();
+        private void AddressBarTextBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            AddressBarTextBox.SelectAll();
+            AnimateChromeOpacity(AddressFocusRing, 0, 1, 150);
+        }
+
+        private void AddressBarTextBox_LostFocus(object sender, RoutedEventArgs e) =>
+            AnimateChromeOpacity(AddressFocusRing, 1, 0, 120);
 
         // Shift or Ctrl held at click bypasses the cache, like Chrome's reload button.
         private void RefreshButton_Click(object sender, RoutedEventArgs e)

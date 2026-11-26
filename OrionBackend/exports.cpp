@@ -52,6 +52,12 @@
 // use the name in our own exports without macro expansion.
 #undef CreateWindow
 
+#ifdef ORION_BLINK_ONLY
+static constexpr char DefaultBrowserEngine[] = "blink";
+#else
+static constexpr char DefaultBrowserEngine[] = "webkit";
+#endif
+
 struct InstalledExtensionNative {
     char* id;          // UUID string
     char* name;
@@ -224,7 +230,7 @@ extern "C" __declspec(dllexport) int64_t ResolveStartupProfile(int64_t requested
     if (!common.open() || !common.migrate_legacy_if_needed())
         return 0;
     if (common.get_profiles().empty()
-        && common.create_profile("Default", "", "webkit") == 0)
+        && common.create_profile("Default", "", DefaultBrowserEngine) == 0)
         return 0;
     if (requested_id != 0)
         return common.get_profile(requested_id) ? requested_id : 0;
@@ -254,7 +260,7 @@ extern "C" __declspec(dllexport) const char* InitOrionCore(int64_t profile_id)
 
     // Fresh install: seed the registry with a default profile.
     if (common.get_profiles().empty()
-        && common.create_profile("Default", "", "webkit") == 0)
+        && common.create_profile("Default", "", DefaultBrowserEngine) == 0)
         return ReturnString("Error: cannot create the default profile");
 
     std::optional<orion::RegistryProfile> profile = profile_id != 0
@@ -1115,7 +1121,7 @@ extern "C" __declspec(dllexport) int64_t CreateProfile(
     const char* name, const char* icon_name, const char* engine)
 {
     return orion::CommonDb::instance().create_profile(
-        name ? name : "", icon_name ? icon_name : "", engine ? engine : "webkit");
+        name ? name : "", icon_name ? icon_name : "", engine ? engine : DefaultBrowserEngine);
 }
 
 extern "C" __declspec(dllexport) void UpdateProfile(
@@ -1127,7 +1133,7 @@ extern "C" __declspec(dllexport) void UpdateProfile(
     p.id = id;
     p.name = name ? name : "";
     p.icon = icon_name ? icon_name : "";
-    p.engine = engine && *engine ? engine : "webkit";
+    p.engine = engine && *engine ? engine : DefaultBrowserEngine;
     p.show_in_address_bar = show_in_address_bar != 0;
     p.show_badge_in_app_icon = show_badge_in_app_icon != 0;
     p.keyboard_shortcut = keyboard_shortcut ? keyboard_shortcut : "";

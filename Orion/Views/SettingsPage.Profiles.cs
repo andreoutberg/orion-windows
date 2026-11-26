@@ -59,14 +59,18 @@ namespace Orion
         /// <summary>
         /// Creates a profile named "New Profile" with an unused palette icon,
         /// inheriting the browser engine of <paramref name="sourceProfileId"/>
-        /// (webkit when 0/unknown). Returns the new profile id, or 0 on
+        /// (the build default when 0/unknown). Returns the new profile id, or 0 on
         /// failure. The profile's own database is provisioned on its first
         /// launch.
         /// </summary>
         internal static long CreateProfileLike(long sourceProfileId)
         {
-            string engine = OrionBackend.GetProfiles()
-                .FirstOrDefault(p => p.Id == sourceProfileId)?.Engine ?? "webkit";
+            string engine = App.DefaultBrowserEngine;
+            if (App.SupportsWebKit)
+            {
+                engine = OrionBackend.GetProfiles()
+                    .FirstOrDefault(p => p.Id == sourceProfileId)?.Engine ?? engine;
+            }
             return OrionBackend.CreateProfile("New Profile", PickUnusedProfileIcon(), engine);
         }
 
@@ -162,6 +166,7 @@ namespace Orion
             SetDefaultButton.IsEnabled = !profile.IsDefault;
 
             BrowserEngineComboBox.SelectedIndex = profile.Engine == "blink" ? 1 : 0;
+            BrowserEngineComboBox.IsEnabled = App.SupportsWebKit || profile.Engine == "webkit";
 
             SelectColorInGrid(profile.Icon);
 
@@ -346,6 +351,7 @@ namespace Orion
 
             profile.Engine = engine;
             OrionBackend.UpdateProfile(profile);
+            BrowserEngineComboBox.IsEnabled = App.SupportsWebKit;
         }
 
         private async void DeleteProfile_Click(object _sender, RoutedEventArgs _e)

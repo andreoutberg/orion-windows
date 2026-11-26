@@ -2,6 +2,8 @@ using Microsoft.UI.Dispatching;
 using System;
 using System.IO;
 using System.IO.Pipes;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 
 namespace Orion
@@ -20,11 +22,26 @@ namespace Orion
         private static Mutex? _ownerMutex;
         private static volatile bool _stopping;
 
+        private static readonly string ProfileScope = GetProfileScope();
+
+        private static string GetProfileScope()
+        {
+            const string profileScope = "Orion.com.kagi.orion.Profile";
+            if (Environment.GetEnvironmentVariable("ORION_DESIGN_PREVIEW") != "1")
+                return profileScope;
+
+            string path = Path.GetFullPath(Environment.GetEnvironmentVariable("LOCALAPPDATA")
+                ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+            string fingerprint = Convert.ToHexString(SHA256.HashData(
+                Encoding.UTF8.GetBytes(Path.TrimEndingDirectorySeparator(path).ToUpperInvariant())));
+            return $"{profileScope}.Preview.{fingerprint[..16]}";
+        }
+
         private static string MutexName(long profileId)
-            => $@"Local\Orion.com.kagi.orion.Profile.{profileId}";
+            => $@"Local\{ProfileScope}.{profileId}";
 
         private static string PipeName(long profileId)
-            => $"Orion.com.kagi.orion.Profile.{profileId}";
+            => $"{ProfileScope}.{profileId}";
 
         /// <summary>
         /// Returns true when this process now owns the profile. Returns false

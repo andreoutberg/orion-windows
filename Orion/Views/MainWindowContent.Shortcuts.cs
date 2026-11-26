@@ -75,6 +75,7 @@ namespace Orion
             // ShowSidebar in Gtk: Ctrl+Super+S. Ctrl+B is more or less "standard" for sidebars on Windows
             Shortcuts["ShowSidebar"] = new() { Key = VirtualKey.B, Modifiers = VirtualKeyModifiers.Control, DisplayName = "Toggle Sidebar", Action = () => ViewModel.ShowSidebar = !ViewModel.ShowSidebar };
             Shortcuts["FocusAddressBar"] = new() { Key = VirtualKey.L, Modifiers = VirtualKeyModifiers.Control, DisplayName = "Open Location", Action = () => _ = FocusAddressBar() };
+            Shortcuts["SearchTabs"] = new() { Key = VirtualKey.K, Modifiers = VirtualKeyModifiers.Control, DisplayName = "Search Open Tabs", Action = ShowTabSearch };
             // Page-first like Chromium and Firefox (web apps may bind Ctrl+R);
             // F5, Ctrl+F5 and Shift+F5 are the Windows-native equivalents.
             void reload() => ViewModel.ActiveTabViewModel?.ReloadCommand.Execute(null);

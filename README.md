@@ -316,6 +316,19 @@ automatically.
 CEF is provisioned automatically by the `OrionCefSetup` project, which runs
 `cef.py.cmd setup`. The version and source are pinned in `vendor/CEF_VERSION`.
 
+### Local Chromium build
+
+The [Orion Search+ Windows preview](docs_ai/windows-preview-release.md) uses a
+public, pinned Chromium toolchain and a Search-inspired native WinUI layout.
+That guide covers the x64 build, portable ZIP, checksums and the renderer
+sandbox limitation.
+
+The [Windows preview package workflow](.github/workflows/windows-preview.yml)
+builds a ZIP and checksum as Actions artifacts. To prepare a GitHub prerelease
+after merging and reviewing the build, create the tag matching
+`scripts/windows-preview.json` and dispatch the workflow on that tag with
+**draft_release** enabled. Review the draft and its assets before publishing.
+
 ## Documentation
 
 - `CLAUDE.md` — build system, architecture, and code-style guide for the repo.

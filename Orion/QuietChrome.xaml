@@ -1,0 +1,35 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="OrionChromeSurfaceBrush" Color="#FFF9F8F7" />
+            <SolidColorBrush x:Key="OrionChromeWellBrush" Color="#FFF0EEEF" />
+            <SolidColorBrush x:Key="OrionChromeLineBrush" Color="#FFE6E2E5" />
+            <SolidColorBrush x:Key="OrionChromeSelectionBrush" Color="#FFECE8F3" />
+            <SolidColorBrush x:Key="OrionChromeAccentBrush" Color="#FF7253B4" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Default">
+            <SolidColorBrush x:Key="OrionChromeSurfaceBrush" Color="#FF201E23" />
+            <SolidColorBrush x:Key="OrionChromeWellBrush" Color="#FF2B2830" />
+            <SolidColorBrush x:Key="OrionChromeLineBrush" Color="#FF37333D" />
+            <SolidColorBrush x:Key="OrionChromeSelectionBrush" Color="#FF393042" />
+            <SolidColorBrush x:Key="OrionChromeAccentBrush" Color="#FFC0A6F5" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <SolidColorBrush x:Key="OrionChromeSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="OrionChromeWellBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="OrionChromeLineBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="OrionChromeSelectionBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="OrionChromeAccentBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <Style
+        x:Key="OrionChromeButtonStyle"
+        BasedOn="{StaticResource DefaultButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="6" />
+    </Style>
+</ResourceDictionary>

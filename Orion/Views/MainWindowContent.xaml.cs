@@ -59,9 +59,15 @@ namespace Orion
             // Load sidebar settings before InitializeComponent so IsPaneOpen binding
             // picks up the correct value immediately (avoids visual flicker)
             long initPid = ViewModel.ActiveProfileId;
-            ViewModel.ShowSidebar = OrionBackend.GetBoolSetting(initPid,
+            bool previewFirstRun = System.Environment.GetEnvironmentVariable("ORION_DESIGN_PREVIEW") == "1"
+                && System.Environment.GetEnvironmentVariable("ORION_DESIGN_FIRST_RUN") == "1";
+            if (previewFirstRun)
+            {
+                System.Environment.SetEnvironmentVariable("ORION_DESIGN_FIRST_RUN", null);
+            }
+            ViewModel.ShowSidebar = previewFirstRun || OrionBackend.GetBoolSetting(initPid,
                 "settings::appearance::show_sidebar", "settings::appearance", "show_sidebar", false);
-            ViewModel.SelectedSidebarPage = (SidebarPage)OrionBackend.GetIntSetting(initPid,
+            ViewModel.SelectedSidebarPage = previewFirstRun ? SidebarPage.tabs : (SidebarPage)OrionBackend.GetIntSetting(initPid,
                 "settings::appearance::sidebar_page", "settings::appearance", "sidebar_page",
                 (int)SidebarPage.windows);
 
@@ -89,12 +95,18 @@ namespace Orion
 
             // Wire up start page
             StartPageContent.NavigateRequested += (_, url) => NavigateToUrl(url);
+            StartPageContent.AddressRequested += (_, _) => _ = FocusAddressBar();
 
             // Initialize profile-dependent settings
             long pid = ViewModel.ActiveProfileId;
-            ViewModel.ShowBookmarkBar = OrionBackend.GetBoolSetting(pid,
+            ViewModel.ShowBookmarkBar = !previewFirstRun && OrionBackend.GetBoolSetting(pid,
                 "settings::appearance::show_bookmarks_bar", "settings::appearance", "show_bookmarks_bar", true);
-            ViewModel.TabLayout = (TabLayout)OrionBackend.GetIntSetting(pid,
+            if (previewFirstRun)
+            {
+                OrionBackend.SetBoolSetting(pid, "settings::appearance::show_bookmarks_bar",
+                    "settings::appearance", "show_bookmarks_bar", false, true);
+            }
+            ViewModel.TabLayout = previewFirstRun ? TabLayout.vertical : (TabLayout)OrionBackend.GetIntSetting(pid,
                 "settings::tabs::tab_layout", "settings::tabs", "tab_layout", (int)TabLayout.standard);
             ViewModel.ProfileDisplayMode = (ProfileDisplayMode)OrionBackend.GetIntSetting(pid,
                 "settings::appearance::profile_display_mode", "settings::appearance", "profile_display_mode",
