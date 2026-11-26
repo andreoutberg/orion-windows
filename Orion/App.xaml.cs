@@ -45,7 +45,13 @@ namespace Orion
             OrionBackend.SetupLogging();
         }
 
-        private const string DefaultBrowserEngine = "webkit";
+#if ORION_BLINK_ONLY
+        internal const string DefaultBrowserEngine = "blink";
+        internal static bool SupportsWebKit => false;
+#else
+        internal const string DefaultBrowserEngine = "webkit";
+        internal static bool SupportsWebKit => true;
+#endif
 
         /// <summary>
         /// Loads the profile's engine (--engine= arg overrides); false means
@@ -62,6 +68,12 @@ namespace Orion
             {
                 OrionBackend.LogWarning($"Unknown browser engine '{requested}' — using '{DefaultBrowserEngine}'");
                 requested = DefaultBrowserEngine;
+            }
+            if (!SupportsWebKit && requested == "webkit")
+            {
+                ShowFatalStartupErrorAndExit("WebKit is unavailable",
+                    "This build uses Chromium. Start Orion with --engine=blink to open this profile.");
+                return false;
             }
             try
             {

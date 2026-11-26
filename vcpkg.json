@@ -2,18 +2,31 @@
   "name": "orion-windows",
   "version-string": "0.0.1",
   "dependencies": [
-    "webkit-win",
     "libuv",
     "libzip",
     "pugixml",
     "reflectcpp",
-    "sqlite3",
+    {
+      "name": "sqlite3",
+      "features": ["fts5", "json1", "rtree", "math"]
+    },
     "zlib",
     {
       "name": "curl",
-      "features": ["libressl"]
+      "features": ["http3", "ipv6", "libressl"]
+    },
+    {
+      "name": "ngtcp2",
+      "features": ["openssl"]
     }
   ],
+  "default-features": ["webkit"],
+  "features": {
+    "webkit": {
+      "description": "Build the WebKit engine",
+      "dependencies": ["webkit-win"]
+    }
+  },
   "overrides": [
     {
       "name": "ngtcp2",

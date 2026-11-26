@@ -1,0 +1,83 @@
+name: Windows preview package
+
+on:
+  pull_request:
+    paths:
+      - 'Orion/**'
+      - 'OrionBackend/**'
+      - 'scripts/*windows-preview*'
+      - 'docs_ai/windows-preview-release.md'
+      - '.github/workflows/windows-preview.yml'
+      - 'Directory.Build.props'
+      - 'vcpkg*'
+  workflow_dispatch:
+    inputs:
+      draft_release:
+        description: Create a draft prerelease for the selected version tag
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Check pinned MSVC toolset
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vs = & $vswhere -latest -products '*' -version '[18.0,19.0)' -property installationPath
+          if (-not $vs) { throw 'Visual Studio 2026 is required.' }
+          $toolset = (Get-Content -LiteralPath MSVC_VERSION).Trim()
+          $compiler = Join-Path $vs "VC\Tools\MSVC\$toolset\bin\Hostx64\x64\cl.exe"
+          if (-not (Test-Path -LiteralPath $compiler)) {
+            $setup = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\setup.exe'
+            $arguments = 'modify --installPath "' + $vs + '" --quiet --norestart --add Microsoft.VisualStudio.Component.VC.14.50.18.0.x86.x64'
+            $installer = Start-Process -FilePath $setup -ArgumentList $arguments -Wait -PassThru -WindowStyle Hidden
+            if ($installer.ExitCode -notin @(0, 3010)) { throw "Toolset setup returned $($installer.ExitCode)." }
+          }
+          if (-not (Test-Path -LiteralPath $compiler)) { throw "MSVC $toolset is unavailable." }
+      - name: Build x64 preview
+        shell: pwsh
+        run: ./scripts/build-windows-preview.ps1 -PublishDirectory out/app -CacheDirectory out/cache
+      - name: Package preview
+        shell: pwsh
+        run: ./scripts/package-windows-preview.ps1 -PublishDirectory out/app -OutputDirectory out/package
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: orion-searchplus-win-x64
+          path: out/package/*
+          compression-level: 0
+          if-no-files-found: error
+
+  draft-release:
+    needs: package
+    if: github.event_name == 'workflow_dispatch' && inputs.draft_release && github.ref_type == 'tag' && github.repository == 'andreoutberg/orion-windows'
+    runs-on: windows-2025-vs2026
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: orion-searchplus-win-x64
+          path: out/package
+      - name: Stage draft prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $pins = Get-Content -Raw -LiteralPath scripts/windows-preview.json | ConvertFrom-Json
+          if ($env:RELEASE_TAG -ne "v$($pins.version)") { throw 'The tag must match the preview version.' }
+          $zip = "out/package/Orion-SearchPlus-$($pins.version)-win-x64.zip"
+          gh release create $env:RELEASE_TAG $zip out/package/SHA256SUMS.txt --repo andreoutberg/orion-windows --verify-tag --draft --prerelease --title "Orion Search+ $($pins.version)" --notes-file docs_ai/windows-preview-release.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

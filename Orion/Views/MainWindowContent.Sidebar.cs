@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -38,11 +39,6 @@ namespace Orion
                 VerticalTabScrollViewer.MaxHeight = availableHeight;
         }
 
-        private void SplitView_PaneClosed(SplitView sender, object args)
-        {
-            //InvalidatePaneLayout();
-        }
-
         private void SplitView_PaneOpened(SplitView sender, object args) => InvalidatePaneLayout();
 
         /// <summary>
@@ -77,22 +73,15 @@ namespace Orion
                 // Footer nav button
                 var button = new Button
                 {
-                    Height = 40,
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    HorizontalContentAlignment = HorizontalAlignment.Left,
-                    CornerRadius = new CornerRadius(4),
+                    Width = 36,
+                    Height = 34,
+                    HorizontalContentAlignment = HorizontalAlignment.Center,
+                    Style = (Style)Application.Current.Resources["OrionChromeButtonStyle"],
                     Background = transparentBrush,
-                    Content = new StackPanel
-                    {
-                        Orientation = Orientation.Horizontal,
-                        Spacing = 12,
-                        Children =
-                        {
-                            new FontIcon { FontSize = 16, Glyph = page.Glyph() },
-                            new TextBlock { VerticalAlignment = VerticalAlignment.Center, Text = page.DisplayName() },
-                        },
-                    },
+                    Content = new FontIcon { FontSize = 15, Glyph = page.Glyph() },
                 };
+                AutomationProperties.SetName(button, page.DisplayName());
+                ToolTipService.SetToolTip(button, page.DisplayName());
                 button.Click += (s, e) => SetSidebarPage(page);
                 SidebarNavButtons.Children.Add(button);
                 _sidebarNavButtons[page] = button;
@@ -111,9 +100,16 @@ namespace Orion
                     UpdateTabLayoutMenu();
                 if (e.PropertyName == nameof(MainWindowViewModel.ShowSidebar))
                     InvalidatePaneLayout();
+                if (e.PropertyName is nameof(MainWindowViewModel.TabLayout)
+                    or nameof(MainWindowViewModel.ShowSidebar)
+                    or nameof(MainWindowViewModel.IsChromeHiddenForFullscreen))
+                {
+                    UpdateSidebarPresentation();
+                }
             };
             UpdateSidebarNavHighlight(activeBrush, transparentBrush);
             UpdateTabLayoutMenu();
+            UpdateSidebarPresentation();
         }
 
         private void UpdateSidebarNavHighlight(Brush? activeBrush, Brush transparentBrush)

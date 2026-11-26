@@ -29,3 +29,6 @@ UnitTest/obj/
 
 # vcpkg installed packages
 vcpkg_installed/
+/out/
+/external/orion-gtk/
+/external/vcpkg/

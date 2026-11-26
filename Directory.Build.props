@@ -27,7 +27,8 @@
            (core debug mode in InitOrionCore)
        Never condition test-extension code or content on anything else. -->
   <PropertyGroup>
-    <OrionTestExtensions Condition="'$(OrionTestExtensions)' == ''">true</OrionTestExtensions>
+    <OrionBuildWebKit Condition="'$(OrionBuildWebKit)' == ''">true</OrionBuildWebKit>
+    <OrionTestExtensions Condition="'$(OrionTestExtensions)' == ''">$(OrionBuildWebKit)</OrionTestExtensions>
   </PropertyGroup>
 
   <!-- vcpkg binary caching and gsutil PATH setup.
@@ -36,7 +37,9 @@
        Requires: gcloud auth login (for GCS credentials) -->
   <PropertyGroup>
     <_VcpkgBinarySources>clear;x-gcs,gs://kagi-orion-windows-artifacts/,readwrite</_VcpkgBinarySources>
+    <_VcpkgBinarySources Condition="'$(OrionBuildWebKit)' == 'false'">default,readwrite</_VcpkgBinarySources>
     <VcpkgAdditionalInstallOptions>--z-tool-data-file="$(MSBuildThisFileDirectory)vcpkg-tools.json"</VcpkgAdditionalInstallOptions>
+    <VcpkgAdditionalInstallOptions Condition="'$(OrionBuildWebKit)' == 'false'">$(VcpkgAdditionalInstallOptions) --x-no-default-features</VcpkgAdditionalInstallOptions>
   </PropertyGroup>
   <UsingTask TaskName="_SetEnvVar" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
@@ -78,7 +81,7 @@
   <Target Name="_FetchWebKitSource" BeforeTargets="VcpkgInstallManifestDependencies"
           Inputs="$(MSBuildThisFileDirectory)ports\webkit-win\WEBKIT_REF"
           Outputs="$(MSBuildThisFileDirectory)external\vcpkg\downloads\webkit-src-$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)ports\webkit-win\WEBKIT_REF').Trim()).tar.zst"
-          Condition="'$(VcpkgEnabled)' == 'true' and '$(VcpkgEnableManifest)' == 'true'">
+          Condition="'$(OrionBuildWebKit)' == 'true' and '$(VcpkgEnabled)' == 'true' and '$(VcpkgEnableManifest)' == 'true'">
     <Exec Command="call &quot;$(MSBuildThisFileDirectory)scripts\fetch_webkit_src.py.cmd&quot;" />
   </Target>
 
@@ -94,9 +97,9 @@
     <_SetEnvVar Name="VCPKG_BINARY_SOURCES" Value="$(_VcpkgBinarySources)" />
     <_SetEnvVar Name="VCPKG_FORCE_DOWNLOADED_BINARIES" Value="1" />
     <Exec Command="gcloud auth print-access-token" ConsoleToMSBuild="true"
-          StandardOutputImportance="low" ContinueOnError="true">
+          StandardOutputImportance="low" ContinueOnError="true" Condition="'$(OrionBuildWebKit)' == 'true'">
       <Output TaskParameter="ConsoleOutput" PropertyName="_GcloudToken" />
     </Exec>
-    <_SetEnvVar Name="GSUTIL_CMD_CURL_AUTHTOKEN" Value="$(_GcloudToken)" />
+    <_SetEnvVar Name="GSUTIL_CMD_CURL_AUTHTOKEN" Value="$(_GcloudToken)" Condition="'$(OrionBuildWebKit)' == 'true'" />
   </Target>
 </Project>

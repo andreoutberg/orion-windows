@@ -16,6 +16,11 @@ namespace Orion
                 NavigateRequested?.Invoke(this, url);
         }
 
+        private void EditAddress_Click(object sender, RoutedEventArgs e) =>
+            AddressRequested?.Invoke(this, System.EventArgs.Empty);
+
+        public event System.EventHandler? AddressRequested;
+
         public event System.EventHandler<string>? NavigateRequested;
     }
 }

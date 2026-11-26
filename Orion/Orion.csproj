@@ -82,6 +82,9 @@
   <PropertyGroup Condition="'$(OrionTestExtensions)' == 'true'">
     <DefineConstants>$(DefineConstants);ORION_TEST_EXTENSIONS</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(OrionBuildWebKit)' == 'false'">
+    <DefineConstants>$(DefineConstants);ORION_BLINK_ONLY</DefineConstants>
+  </PropertyGroup>
 
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
@@ -123,7 +126,7 @@
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <SetConfiguration>Configuration=$(NativeConfiguration)</SetConfiguration>
     </ProjectReference>
-    <ProjectReference Include="..\OrionBackend\OrionEngineWK.vcxproj">
+    <ProjectReference Include="..\OrionBackend\OrionEngineWK.vcxproj" Condition="'$(OrionBuildWebKit)' == 'true'">
       <Project>{ff39e72e-867d-4067-84e6-ab5214ca33d3}</Project>
       <Name>OrionEngineWK</Name>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
@@ -188,7 +191,7 @@
        injected items are invisible to the IDE up-to-date check
        (docs_ai/msbuild_custom_build_steps.md). -->
   <ItemGroup>
-    <None Include="..\x64\$(WkEngineConfiguration)\OrionEngineWK.dll">
+    <None Include="..\x64\$(WkEngineConfiguration)\OrionEngineWK.dll" Condition="'$(OrionBuildWebKit)' == 'true'">
       <CopyToOutputDirectory>IfDifferent</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <Link>engines\webkit\%(Filename)%(Extension)</Link>
@@ -207,7 +210,7 @@
        itself, so the directory is self-sufficient for the helper
        processes), WebKit's helper exes, and WebKit.resources.
        WebCore.dll resolves WebKit.resources/ relative to its own directory. -->
-  <ItemGroup>
+  <ItemGroup Condition="'$(OrionBuildWebKit)' == 'true'">
     <None Include="$(VcpkgBinDir)\*.dll">
       <CopyToOutputDirectory>IfDifferent</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -227,7 +230,7 @@
       <Visible>false</Visible>
     </None>
   </ItemGroup>
-  <ItemGroup Condition="'$(Configuration)' != 'LocalDebug'">
+  <ItemGroup Condition="'$(OrionBuildWebKit)' == 'true' and '$(Configuration)' != 'LocalDebug'">
     <None Include="..\vcpkg_installed\$(Platform)-windows\share\webkit\WebKit.resources\**\*">
       <CopyToOutputDirectory>IfDifferent</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -238,7 +241,7 @@
 
   <!-- LocalDebug: WebKit binaries from the local ../webkit/ build replace
        the vcpkg-built ones (vcpkg still provides WebKit's dependencies). -->
-  <ItemGroup Condition="'$(Configuration)' == 'LocalDebug'">
+  <ItemGroup Condition="'$(OrionBuildWebKit)' == 'true' and '$(Configuration)' == 'LocalDebug'">
     <None Remove="$(VcpkgBinDir)\JavaScriptCore.*;$(VcpkgBinDir)\WebCore.*;$(VcpkgBinDir)\WebKit2.*;$(VcpkgBinDir)\MiniBrowserInjectedBundle.*;$(VcpkgBinDir)\libEGL.*;$(VcpkgBinDir)\libGLESv2.*;$(VcpkgBinDir)\WebKitWebProcess.*;$(VcpkgBinDir)\WebKitNetworkProcess.*;$(VcpkgBinDir)\WebKitGPUProcess.*" />
     <None Include="..\..\webkit\WebKitBuild\Debug\bin\*.dll">
       <CopyToOutputDirectory>IfDifferent</CopyToOutputDirectory>
@@ -278,7 +281,10 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- DLLs -->
-    <None Include="$(CefSourceDir)libcef.dll;$(CefSourceDir)chrome_elf.dll;$(CefSourceDir)d3dcompiler_47.dll;$(CefSourceDir)dxcompiler.dll;$(CefSourceDir)dxil.dll;$(CefSourceDir)libEGL.dll;$(CefSourceDir)libGLESv2.dll;$(CefSourceDir)vk_swiftshader.dll;$(CefSourceDir)vulkan-1.dll">
+    <CefOptionalDll Include="$(CefSourceDir)dxil.dll" Condition="Exists('$(CefSourceDir)dxil.dll')" />
+    <CefOptionalDll Include="$(CefSourceDir)libEGL.dll" Condition="Exists('$(CefSourceDir)libEGL.dll')" />
+    <CefOptionalDll Include="$(CefSourceDir)libGLESv2.dll" Condition="Exists('$(CefSourceDir)libGLESv2.dll')" />
+    <None Include="$(CefSourceDir)libcef.dll;$(CefSourceDir)chrome_elf.dll;$(CefSourceDir)d3dcompiler_47.dll;$(CefSourceDir)dxcompiler.dll;$(CefSourceDir)vk_swiftshader.dll;$(CefSourceDir)vulkan-1.dll;@(CefOptionalDll)">
       <CopyToOutputDirectory>IfDifferent</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <Link>engines\blink\%(Filename)%(Extension)</Link>

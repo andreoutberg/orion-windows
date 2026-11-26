@@ -72,7 +72,7 @@
     <VcpkgRoot>$(SolutionDir)external\vcpkg</VcpkgRoot>
     <VcpkgAutoLink>false</VcpkgAutoLink>
     <VcpkgInstalledDir>$(SolutionDir)vcpkg_installed\</VcpkgInstalledDir>
-    <VcpkgAdditionalInstallOptions>--debug --z-tool-data-file="$(SolutionDir)vcpkg-tools.json"</VcpkgAdditionalInstallOptions>
+    <VcpkgAdditionalInstallOptions>$(VcpkgAdditionalInstallOptions) --debug</VcpkgAdditionalInstallOptions>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <VcpkgConfiguration>Debug</VcpkgConfiguration>
@@ -135,6 +135,11 @@
   <ItemDefinitionGroup Condition="'$(OrionTestExtensions)' == 'true'">
     <ClCompile>
       <PreprocessorDefinitions>ORION_TEST_EXTENSIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(OrionBuildWebKit)' == 'false'">
+    <ClCompile>
+      <PreprocessorDefinitions>ORION_BLINK_ONLY;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
