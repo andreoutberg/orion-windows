@@ -7,33 +7,17 @@ using Windows.System;
 
 namespace Orion
 {
-    public sealed record TabSearchMatch(BrowserTab Tab, TabGroup Group)
-    {
-        public string Title => string.IsNullOrWhiteSpace(Tab.Title) ? Tab.Url : Tab.Title;
-
-        public override string ToString() => Title;
-
-        public string Context
-        {
-            get
-            {
-                if (!Uri.TryCreate(Tab.Url, UriKind.Absolute, out Uri? uri))
-                    return Group.DisplayName;
-
-                string site = string.IsNullOrEmpty(uri.Host) ? uri.Scheme : uri.Host;
-                if (uri.IsFile)
-                    site = "Local file";
-                return $"{Group.DisplayName}  ·  {site}";
-            }
-        }
-    }
-
     public sealed partial class MainWindowContent
     {
+        private Control? _tabSearchPreviousFocus;
+
         private void ShowTabSearch()
         {
-            if (!ViewModel.IsChromeHiddenForFullscreen)
-                TabSearchFlyout.ShowAt(TabSearchButton);
+            if (ViewModel.IsChromeHiddenForFullscreen || TabSearchFlyout.IsOpen)
+                return;
+
+            _tabSearchPreviousFocus = FocusManager.GetFocusedElement(XamlRoot) as Control;
+            TabSearchFlyout.ShowAt(TabSearchButton);
         }
 
         private void TabSearchFlyout_Opened(object sender, object e)
@@ -46,16 +30,18 @@ namespace Orion
 
         private void TabSearchBox_TextChanged(object sender, TextChangedEventArgs e) => UpdateTabSearch();
 
+        private void TabSearchFlyout_Closed(object sender, object e)
+        {
+            Control? previousFocus = _tabSearchPreviousFocus;
+            _tabSearchPreviousFocus = null;
+            if (previousFocus?.XamlRoot == XamlRoot)
+                _ = previousFocus?.Focus(FocusState.Keyboard);
+        }
+
         private void UpdateTabSearch()
         {
-            string query = TabSearchBox.Text.Trim();
-            TabSearchMatch[] matches = [.. ViewModel.TabGroups
-                .OrderByDescending(group => group == ViewModel.ActiveGroup)
-                .SelectMany(group => group.Model.FlattenedTabs.Select(tab => new TabSearchMatch(tab, group.Model)))
-                .Where(match => match.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
-                    || match.Tab.Url.Contains(query, StringComparison.OrdinalIgnoreCase)
-                    || match.Group.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .Take(30)];
+            TabSearchMatch[] matches = [.. TabSearchMatch.Find(ViewModel.TabGroups.Select(group => group.Model),
+                ViewModel.ActiveGroup?.Model, TabSearchBox.Text).Take(30)];
             TabSearchResults.ItemsSource = matches;
             TabSearchResults.SelectedIndex = matches.Length == 0 ? -1 : 0;
             TabSearchEmpty.Visibility = matches.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -88,10 +74,19 @@ namespace Orion
 
         private void ActivateSearchMatch(TabSearchMatch match)
         {
+            if (!ViewModel.TabGroups.Any(group => group.Model == match.Group)
+                || (match.Tab is { } stale && !match.Group.TabExists(stale)))
+            {
+                UpdateTabSearch();
+                return;
+            }
+
+            _tabSearchPreviousFocus = null;
             TabSearchFlyout.Hide();
             if (ViewModel.ActiveGroup?.Model != match.Group)
                 ViewModel.SelectTabGroup(match.Group);
-            SwitchToTab(match.Tab);
+            if (match.Tab is { } tab)
+                SwitchToTab(tab);
         }
     }
 }

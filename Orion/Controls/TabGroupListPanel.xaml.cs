@@ -90,7 +90,7 @@ namespace Orion
             if (container == null)
                 return;
 
-            (StackPanel? displayPanel, StackPanel? editPanel, TextBox? editBox, TextBlock? shortcutLabel) = FindEditElements(container);
+            (FrameworkElement? displayPanel, StackPanel? editPanel, TextBox? editBox, TextBlock? shortcutLabel) = FindEditElements(container);
             if (displayPanel == null || editPanel == null || editBox == null)
                 return;
 
@@ -127,7 +127,7 @@ namespace Orion
                     return;
                 }
 
-                (StackPanel? displayPanel, StackPanel? editPanel, TextBox? editBox, TextBlock? shortcutLabel) = FindEditElements(container);
+                (FrameworkElement? displayPanel, StackPanel? editPanel, TextBox? editBox, TextBlock? shortcutLabel) = FindEditElements(container);
                 if (editBox == null)
                 {
                     _editingGroup = null;
@@ -162,7 +162,7 @@ namespace Orion
                 if (container == null)
                     return;
 
-                (StackPanel? displayPanel, StackPanel? editPanel, TextBox? editBox, TextBlock? shortcutLabel) = FindEditElements(container);
+                (FrameworkElement? displayPanel, StackPanel? editPanel, TextBox? editBox, TextBlock? shortcutLabel) = FindEditElements(container);
                 if (displayPanel != null && editPanel != null && editBox != null)
                     EndSavedEdit(displayPanel, editPanel, editBox, shortcutLabel);
             }
@@ -208,7 +208,7 @@ namespace Orion
                 CommitEdit();
         }
 
-        private static (StackPanel? display, StackPanel? edit, TextBox? editBox, TextBlock? shortcutLabel) FindEditElements(
+        private static (FrameworkElement? display, StackPanel? edit, TextBox? editBox, TextBlock? shortcutLabel) FindEditElements(
             ListViewItem container)
         {
             // The DataTemplate root is a Grid whose child order is a contract:
@@ -218,7 +218,7 @@ namespace Orion
             if (grid == null || grid.Children.Count < 2)
                 return (null, null, null, null);
 
-            var display = grid.Children[0] as StackPanel;
+            var display = grid.Children[0] as FrameworkElement;
             var edit = grid.Children[1] as StackPanel;
             TextBox? editBox = edit != null ? FindDescendant<TextBox>(edit) : null;
             TextBlock? shortcutLabel = grid.Children.Count > 2 ? grid.Children[2] as TextBlock : null;

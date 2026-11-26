@@ -53,6 +53,79 @@ namespace Orion
         }
 
         [Fact]
+        public void ChangingPinScope_MovesOneRowAndUpdatesEveryWorkspace()
+        {
+            var vm = new MainWindowViewModel(TestProfile);
+            TabGroup home = vm.UnsavedTabGroup!;
+            TabGroup first = vm.CreateTabGroup(forceEmpty: true).Model;
+            BrowserTab tab = vm.CreateNewTab("https://example.com/start", "Start")!;
+            TabGroup second = vm.CreateTabGroup(forceEmpty: true).Model;
+            vm.SelectTabGroup(first);
+
+            Assert.True(vm.SetTabPinScope(tab, TabPinScope.Workspace));
+            Assert.Same(tab, Assert.Single(first.Tabs));
+            Assert.Empty(second.Tabs);
+
+            Assert.True(vm.SetTabPinScope(tab, TabPinScope.Profile));
+            Assert.Same(tab, Assert.Single(first.Tabs));
+            BrowserTab projection = Assert.Single(second.Tabs);
+            Assert.NotSame(tab, projection);
+            Assert.Equal(tab.Id, projection.Id);
+            Assert.Contains(home.Tabs, t => t.Id == tab.Id);
+            long sharedWindow = OrionBackend.GetSharedPinnedTabsWindowId(TestProfile.Id);
+            Assert.Equal(tab.Id, Assert.Single(OrionBackend.GetTabs(sharedWindow)).Id);
+            Assert.Empty(OrionBackend.GetTabs(first.Id));
+
+            vm.SelectTabGroup(second);
+            Assert.True(vm.SetTabPinScope(projection, TabPinScope.Workspace));
+            Assert.Empty(first.Tabs);
+            Assert.NotEqual(tab, vm.TabGroups[1].ActiveTab);
+            Assert.DoesNotContain(home.Tabs, t => t.Id == tab.Id);
+            Assert.Empty(OrionBackend.GetTabs(sharedWindow));
+            Assert.Equal(tab.Id, Assert.Single(OrionBackend.GetTabs(second.Id)).Id);
+        }
+
+        [Fact]
+        public void UpdatingSavedPinPage_PreservesLiveUrlsUntilExplicitNavigation()
+        {
+            var vm = new MainWindowViewModel(TestProfile);
+            BrowserTab tab = vm.ActiveTab!;
+            tab.Url = "https://example.com/saved";
+            Assert.True(vm.SetTabPinScope(tab, TabPinScope.Profile));
+            TabGroup second = vm.CreateTabGroup(forceEmpty: true).Model;
+            BrowserTab projection = Assert.Single(second.Tabs);
+
+            tab.Url = "https://example.com/current";
+            Assert.Equal("https://example.com/saved", tab.Pin!.Url);
+            Assert.True(vm.UseCurrentPageAsPin(tab));
+
+            Assert.Equal("https://example.com/current", projection.Pin!.Url);
+            Assert.Equal("https://example.com/saved", projection.Url);
+            var newWindow = new MainWindowViewModel(TestProfile);
+            BrowserTab restored = Assert.Single(newWindow.UnsavedTabGroup!.Tabs, t => t.Id == tab.Id);
+            Assert.Equal("https://example.com/current", restored.Url);
+        }
+
+        [Fact]
+        public void UnpinFromTemporaryWindow_KeepsTheCurrentPageAndRemovesProjections()
+        {
+            var vm = new MainWindowViewModel(TestProfile);
+            BrowserTab tab = vm.ActiveTab!;
+            Assert.False(vm.SetTabPinScope(tab, TabPinScope.Workspace));
+            Assert.True(vm.SetTabPinScope(tab, TabPinScope.Profile));
+            TabGroup saved = vm.CreateTabGroup(forceEmpty: true).Model;
+            vm.SelectTabGroup(vm.UnsavedTabGroup!);
+            tab.Url = "https://example.com/current";
+
+            Assert.True(vm.SetTabPinScope(tab, null));
+
+            Assert.False(tab.IsPinned);
+            Assert.Null(tab.Pin);
+            Assert.Empty(saved.Tabs);
+            Assert.Equal(tab.Url, Assert.Single(OrionBackend.GetTabs(vm.UnsavedTabGroup!.Id)).Uri);
+        }
+
+        [Fact]
         public void Construction_UnsavedTabGroupIsModel()
         {
             var vm = new MainWindowViewModel(TestProfile);

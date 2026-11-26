@@ -141,9 +141,12 @@ bool CommonDb::open()
     if (m_db)
         return true;
 
-    std::filesystem::path path(orion::data_directory_path(kAppId, { "orion.db" }));
-    std::error_code ec;
-    std::filesystem::create_directories(path.parent_path(), ec);
+    const std::filesystem::path path = m_in_memory ? ":memory:"
+        : orion::data_directory_path(kAppId, { "orion.db" });
+    if (!m_in_memory) {
+        std::error_code ec;
+        std::filesystem::create_directories(path.parent_path(), ec);
+    }
 
     m_db = openSqlite(path);
     if (!m_db)
@@ -153,6 +156,14 @@ bool CommonDb::open()
         m_db = nullptr;
         return false;
     }
+    return true;
+}
+
+bool CommonDb::use_in_memory_storage()
+{
+    if (m_db)
+        return m_in_memory;
+    m_in_memory = true;
     return true;
 }
 
@@ -279,11 +290,13 @@ int64_t CommonDb::create_profile(
         id = stmt.column_int64(0);
     }
 
-    std::error_code ec;
-    std::filesystem::create_directories(profile_dir(id), ec);
-    if (ec)
-        orion::log_error("CommonDb> cannot create profile dir for %lld: %s",
-            (long long)id, ec.message().c_str());
+    if (!m_in_memory) {
+        std::error_code ec;
+        std::filesystem::create_directories(profile_dir(id), ec);
+        if (ec)
+            orion::log_error("CommonDb> cannot create profile dir for %lld: %s",
+                (long long)id, ec.message().c_str());
+    }
     return id;
 }
 
@@ -425,6 +438,8 @@ bool CommonDb::migrate_legacy_if_needed()
 {
     if (!open())
         return false;
+    if (m_in_memory)
+        return true;
 
     {
         Stmt stmt(m_db, "SELECT COUNT(*) FROM profiles");

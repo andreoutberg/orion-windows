@@ -11,6 +11,10 @@ using Windows.Storage.Streams;
 
 namespace Orion
 {
+    internal enum TabPinScope { Workspace, Profile }
+
+    internal sealed record PinnedPage(TabPinScope Scope, string Url, string Title);
+
     /// <summary>
     /// Represents a browser tab with observable properties for data binding.
     /// </summary>
@@ -80,6 +84,28 @@ namespace Orion
         [NotifyPropertyChangedFor(nameof(CloseButtonVisibility))]
         [NotifyPropertyChangedFor(nameof(TabMaxWidth))]
         public partial bool IsPinned { get; set; }
+
+        internal PinnedPage? Pin { get; private set; }
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(VerticalTabVisibility))]
+        internal partial bool IsInPinFolder { get; set; }
+
+        public Visibility VerticalTabVisibility => IsInPinFolder ? Visibility.Collapsed : Visibility.Visible;
+
+        internal void SetPin(PinnedPage? pin)
+        {
+            Pin = pin;
+            IsPinned = pin != null;
+        }
+
+        partial void OnIsPinnedChanged(bool value)
+        {
+            if (value)
+                Pin ??= new PinnedPage(TabPinScope.Workspace, Url, Title);
+            else
+                Pin = null;
+        }
 
         public string DisplayHeader => IsPinned || !GlobalShowTitles ? "" : Title;
 
@@ -216,12 +242,6 @@ namespace Orion
         {
             if (InternalPageTitles.TryGetValue(value, out string? title))
                 Title = title;
-        }
-
-        partial void OnIsPinnedChanged(bool oldValue, bool newValue)
-        {
-            if (Id != 0 && GroupId != 0)
-                OrionBackend.UpdateTabPinned(Id, GroupId, newValue);
         }
 
         // Collection of child items. Used for nested nodes in the TreeView.

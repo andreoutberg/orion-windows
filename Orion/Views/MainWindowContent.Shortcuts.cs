@@ -155,9 +155,11 @@ namespace Orion
                 };
             }
 
+            if (OrionBackend.IsBlinkEngine)
+                Shortcuts["NewPrivateWindow"] = new() { Key = VirtualKey.N, Modifiers = VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, DisplayName = "New Private Window", Action = OpenPrivateWindow };
+
             // TODO: Reserved shortcuts still to implement (Chrome & Firefox reserve these):
             // Ctrl+Shift+W  — Close window (Chrome & Firefox)
-            // Ctrl+Shift+N  — New private window (Chrome); Firefox uses Ctrl+Shift+P
             // Ctrl+F4       — Close tab (Chrome, alternative binding)
 
             // Build dispatch index and register XAML KeyboardAccelerators.

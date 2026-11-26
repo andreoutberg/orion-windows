@@ -21,6 +21,7 @@ def main() -> int:
     for rel in [
         "Orion.exe",
         "OrionBackend.dll",
+        "nethost.dll",
         "engines/webkit/OrionEngineWK.dll",
         "engines/webkit/WebKit2.dll",
         "engines/webkit/WebKitWebProcess.exe",
@@ -28,6 +29,8 @@ def main() -> int:
         "engines/webkit/libEGL.dll",
         "engines/webkit/WebKit.resources",
         "engines/blink/OrionEngineB.dll",
+        "engines/blink/OrionEngineB.exe",
+        "engines/blink/OrionEngineB.pri",
         "engines/blink/libcef.dll",
         "engines/blink/chrome_elf.dll",
         "engines/blink/icudtl.dat",

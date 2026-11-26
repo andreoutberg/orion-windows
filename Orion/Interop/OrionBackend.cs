@@ -413,6 +413,10 @@ namespace Orion
             public static extern string InitOrionCore(long profileId);
 
             [DllImport(OrionDll)]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool ConfigurePrivateSession();
+
+            [DllImport(OrionDll)]
             public static extern void ShutdownOrionCore();
 
             [DllImport(OrionDll)]
@@ -747,7 +751,13 @@ namespace Orion
                 [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
 
             [DllImport(OrionDll)]
-            public static extern void UpdateTabPinned(long tabId, long windowId, sbyte isPinned);
+            public static extern sbyte SaveTabPinState(long tabId, long windowId, sbyte updatePin,
+                sbyte isPinned, sbyte moveToWindow,
+                [MarshalAs(UnmanagedType.LPUTF8Str)] string uri,
+                [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+
+            [DllImport(OrionDll)]
+            public static extern sbyte ReorderPinnedTab(long tabId, long windowId, long beforeTabId);
 
             [DllImport(OrionDll)]
             public static extern void UpdateTabWindowId(long tabId, long windowId);
@@ -1159,6 +1169,10 @@ namespace Orion
 
         public static void DestroyOrionWindow(Win32.HWND hwnd) => Dll.DestroyOrionWindow(hwnd);
 
+        internal static bool IsPrivateSession { get; private set; }
+
+        internal static bool ConfigurePrivateSession() => IsPrivateSession = Dll.ConfigurePrivateSession();
+
         public static void SetupLogging() => Dll.SetupLogging();
 
         public static void LogInfo(string message) => Dll.OrionLog((byte)'I', message);
@@ -1171,7 +1185,6 @@ namespace Orion
 
         public static void AddHistoryEntry(long profileId, string url, string title)
         {
-            Dll.OrionLog((byte)'D', $"AddHistoryEntry: url={url}, title={title}");
             Dll.AddHistoryEntry(profileId, url, title);
         }
 
@@ -1758,10 +1771,13 @@ namespace Orion
 
         public static void UpdateTabName(long tabId, string name) => Dll.UpdateTabName(tabId, name);
 
-        public static void UpdateTabPinned(long tabId, long windowId, bool isPinned)
-        {
-            Dll.UpdateTabPinned(tabId, windowId, (sbyte)(isPinned ? 1 : 0));
-        }
+        internal static bool SaveTabPinState(long tabId, long windowId, bool updatePin,
+            bool isPinned, bool moveToWindow, string uri, string name) =>
+            Dll.SaveTabPinState(tabId, windowId, (sbyte)(updatePin ? 1 : 0),
+                (sbyte)(isPinned ? 1 : 0), (sbyte)(moveToWindow ? 1 : 0), uri, name) != 0;
+
+        internal static bool ReorderPinnedTab(long tabId, long windowId, long beforeTabId) =>
+            Dll.ReorderPinnedTab(tabId, windowId, beforeTabId) != 0;
 
         public static void UpdateTabGroupId(long tabId, long tabGroupId) => Dll.UpdateTabWindowId(tabId, tabGroupId);
 

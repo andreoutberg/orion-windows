@@ -68,11 +68,7 @@ namespace Orion
             // already-running one).
             if (profile.Id != OrionBackend.GetCurrentProfileId())
             {
-                string? exe = System.Environment.ProcessPath;
-                if (exe != null)
-                    _ = System.Diagnostics.Process.Start(exe, $"--profile={profile.Id}");
-                else
-                    OrionBackend.LogError("OpenForProfile: cannot determine the exe path");
+                _ = System.Diagnostics.Process.Start(Program.LauncherPath, $"--profile={profile.Id}");
                 return null;
             }
 

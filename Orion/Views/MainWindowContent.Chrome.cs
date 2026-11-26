@@ -13,30 +13,47 @@ namespace Orion
     {
         private enum SidebarPresentation { Hidden, Folded, Expanded }
 
+        private const double FoldedSidebarWidth = 48;
+        private const double ExpandedSidebarWidth = 224;
+
         private readonly UISettings _chromeMotionSettings = new();
         private SidebarPresentation _sidebarPresentation;
 
         private void UpdateSidebarPresentation()
         {
-            bool canFold = ViewModel.TabLayout == TabLayout.vertical
-                && !ViewModel.IsChromeHiddenForFullscreen;
-            SidebarPresentation presentation = ViewModel.ShowSidebar
-                ? SidebarPresentation.Expanded
-                : canFold ? SidebarPresentation.Folded : SidebarPresentation.Hidden;
-
-            SidebarSplitView.DisplayMode = canFold
-                ? SplitViewDisplayMode.CompactInline : SplitViewDisplayMode.Inline;
-            ExpandedSidebar.Visibility = presentation == SidebarPresentation.Expanded
+            SidebarPresentation presentation = (ViewModel.ShowSidebar, ViewModel.TabLayout, ViewModel.IsChromeHiddenForFullscreen) switch
+            {
+                (true, _, _) => SidebarPresentation.Expanded,
+                (false, TabLayout.vertical, false) => SidebarPresentation.Folded,
+                _ => SidebarPresentation.Hidden,
+            };
+            double paneLength = presentation switch
+            {
+                SidebarPresentation.Expanded => ExpandedSidebarWidth,
+                SidebarPresentation.Folded => FoldedSidebarWidth,
+                _ => 0,
+            };
+            Visibility expandedVisibility = presentation == SidebarPresentation.Expanded
                 ? Visibility.Visible : Visibility.Collapsed;
+
+            // The CEF child HWND follows committed layout bounds. Fade only the rail contents.
+            SidebarPaneColumn.Width = new GridLength(paneLength);
+            SidebarPane.Visibility = presentation == SidebarPresentation.Hidden
+                ? Visibility.Collapsed : Visibility.Visible;
+            ExpandedSidebar.Visibility = expandedVisibility;
             FoldedSidebar.Visibility = presentation == SidebarPresentation.Folded
                 ? Visibility.Visible : Visibility.Collapsed;
+            WorkspaceSwitcherLabel.Visibility = expandedVisibility;
+            WorkspaceSwitcherChevron.Visibility = expandedVisibility;
 
             if (presentation != _sidebarPresentation && IsLoaded)
             {
+                if (presentation == SidebarPresentation.Hidden)
+                    TabGroupSwitcher.Close();
                 if (presentation == SidebarPresentation.Expanded)
-                    AnimateChromeOpacity(ExpandedSidebar, 0.35f, 1, 160);
+                    AnimateChromeOpacity(ExpandedSidebar, 0.62f, 1, 160);
                 else if (presentation == SidebarPresentation.Folded)
-                    AnimateChromeOpacity(FoldedSidebar, 0.35f, 1, 140);
+                    AnimateChromeOpacity(FoldedSidebar, 0.62f, 1, 120);
             }
             _sidebarPresentation = presentation;
         }
@@ -56,13 +73,6 @@ namespace Orion
             animation.InsertKeyFrame(1, to, compositor.CreateCubicBezierEasingFunction(
                 new Vector2(0.22f, 1), new Vector2(0.36f, 1)));
             visual.StartAnimation(nameof(Visual.Opacity), animation);
-        }
-
-        private void ExpandSidebar_Click(object sender, RoutedEventArgs e)
-        {
-            SetSidebarPage(SidebarPage.tabs);
-            ViewModel.ShowSidebar = true;
-            _ = PaneToggleButton.Focus(FocusState.Programmatic);
         }
 
         private void FoldedTabs_ItemClick(object sender, ItemClickEventArgs e)

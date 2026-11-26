@@ -13,47 +13,6 @@ namespace Orion
 {
     public sealed partial class MainWindowContent
     {
-        /// <summary>
-        /// Updates the vertical tab scroll viewer height when the SplitView size changes
-        /// </summary>
-        private void SplitView_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateVerticalTabScrollViewerHeight();
-
-        /// <summary>
-        /// Calculates and sets the MaxHeight of the vertical tab ScrollViewer
-        /// </summary>
-        private void UpdateVerticalTabScrollViewerHeight()
-        {
-            // Null checks for startup
-            if (SidebarSplitView == null || VerticalTabScrollViewer == null || ViewModel == null)
-                return;
-
-            // Calculate available height for the tab list
-            // Account for: PaneHeader, FooterMenuItems, and some padding
-            double paneHeaderHeight = 100; // Approximate height of group name + tab groups row
-            double footerMenuItemsHeight = 180; // Tabs, Tab Groups, Bookmarks, Reading List items
-            double padding = 20;
-
-            double availableHeight = SidebarSplitView.ActualHeight - paneHeaderHeight - footerMenuItemsHeight - padding;
-
-            if (availableHeight > 0)
-                VerticalTabScrollViewer.MaxHeight = availableHeight;
-        }
-
-        private void SplitView_PaneOpened(SplitView sender, object args) => InvalidatePaneLayout();
-
-        /// <summary>
-        /// Forces a redraw of the side pane content
-        /// </summary>
-        private void InvalidatePaneLayout()
-        {
-            // Invalidate layout to force redraw (null checks for startup)
-            TabListContainer?.InvalidateMeasure();
-            TabListContainer?.InvalidateArrange();
-            VerticalTabScrollViewer?.InvalidateMeasure();
-            VerticalTabScrollViewer?.InvalidateArrange();
-            UpdateVerticalTabScrollViewerHeight();
-        }
-
         private readonly Dictionary<SidebarPage, RadioMenuFlyoutItem> _sidebarContextMenuItems = [];
         private readonly Dictionary<SidebarPage, Button> _sidebarNavButtons = [];
 
@@ -98,8 +57,6 @@ namespace Orion
                     UpdateSidebarNavHighlight(activeBrush, transparentBrush);
                 if (e.PropertyName == nameof(MainWindowViewModel.TabLayout))
                     UpdateTabLayoutMenu();
-                if (e.PropertyName == nameof(MainWindowViewModel.ShowSidebar))
-                    InvalidatePaneLayout();
                 if (e.PropertyName is nameof(MainWindowViewModel.TabLayout)
                     or nameof(MainWindowViewModel.ShowSidebar)
                     or nameof(MainWindowViewModel.IsChromeHiddenForFullscreen))
@@ -114,8 +71,13 @@ namespace Orion
 
         private void UpdateSidebarNavHighlight(Brush? activeBrush, Brush transparentBrush)
         {
+            SidebarPage selected = ViewModel.SelectedSidebarPage;
+            SidebarPageLabel.Text = selected.DisplayName();
             foreach ((SidebarPage page, Button button) in _sidebarNavButtons)
-                button.Background = page == ViewModel.SelectedSidebarPage ? activeBrush : transparentBrush;
+            {
+                button.Background = page == selected ? activeBrush : transparentBrush;
+                AutomationProperties.SetItemStatus(button, page == selected ? "Selected" : string.Empty);
+            }
         }
 
         /// <summary>
@@ -155,8 +117,6 @@ namespace Orion
             CompactLayoutMenuItem.IsChecked = ViewModel.TabLayout == TabLayout.compact;
             VerticalLayoutMenuItem.IsChecked = ViewModel.TabLayout == TabLayout.vertical;
         }
-
-        private void SidebarHistory_Click(object sender, RoutedEventArgs e) => LibraryWindow.ShowHistory(profileId: ViewModel.ActiveProfileId);
 
         private void SidebarSettings_Click(object sender, RoutedEventArgs e)
         {
@@ -257,30 +217,19 @@ namespace Orion
 
         private void InitializeDownloadTracking()
         {
-            OrionBackend.DownloadCreated += OnToolbarDownloadCreated;
-            OrionBackend.DownloadUpdated += OnToolbarDownloadUpdated;
+            OrionBackend.DownloadCreated += OnToolbarDownloadChanged;
+            OrionBackend.DownloadUpdated += OnToolbarDownloadChanged;
             OrionBackend.DownloadDeleted += OnToolbarDownloadDeleted;
         }
 
         private void CleanupDownloadTracking()
         {
-            OrionBackend.DownloadCreated -= OnToolbarDownloadCreated;
-            OrionBackend.DownloadUpdated -= OnToolbarDownloadUpdated;
+            OrionBackend.DownloadCreated -= OnToolbarDownloadChanged;
+            OrionBackend.DownloadUpdated -= OnToolbarDownloadChanged;
             OrionBackend.DownloadDeleted -= OnToolbarDownloadDeleted;
         }
 
-        private void OnToolbarDownloadCreated(DownloadEntry entry)
-        {
-            if (entry.ProfileId != ViewModel.ActiveProfileId)
-                return;
-            if (entry.Status == DownloadStatus.Downloading)
-                _activeDownloads[entry.Id] = (entry.ReceivedBytes, entry.TotalBytes);
-            else
-                _activeDownloads.Remove(entry.Id);
-            UpdateDownloadProgressOverlay();
-        }
-
-        private void OnToolbarDownloadUpdated(DownloadEntry entry)
+        private void OnToolbarDownloadChanged(DownloadEntry entry)
         {
             if (entry.ProfileId != ViewModel.ActiveProfileId)
                 return;
@@ -299,29 +248,21 @@ namespace Orion
 
         private void UpdateDownloadProgressOverlay()
         {
-            if (_activeDownloads.Count == 0)
-            {
-                DownloadProgressText.Visibility = Visibility.Collapsed;
-                DownloadsIcon.Visibility = Visibility.Visible;
+            bool hasDownloads = _activeDownloads.Count > 0;
+            DownloadsButton.Visibility = hasDownloads ? Visibility.Visible : Visibility.Collapsed;
+            if (!hasDownloads)
                 return;
-            }
 
             long totalReceived = _activeDownloads.Values.Sum(d => d.received);
             long totalSize = _activeDownloads.Values.Sum(d => d.total);
-
-            if (totalSize > 0)
-            {
-                int percent = (int)(totalReceived * 100 / totalSize);
-                DownloadProgressText.Text = percent <= 100 ? $"{percent}" : "N/A";
-                DownloadProgressText.Visibility = Visibility.Visible;
-                DownloadsIcon.Visibility = Visibility.Collapsed;
-            }
-            else
-            {
-                DownloadProgressText.Text = "N/A";
-                DownloadProgressText.Visibility = Visibility.Visible;
-                DownloadsIcon.Visibility = Visibility.Collapsed;
-            }
+            bool hasProgress = totalSize > 0 && totalReceived <= totalSize;
+            string progress = hasProgress ? $"{(double)totalReceived / totalSize:P0}" : string.Empty;
+            string label = hasProgress ? $"Downloads in progress, {progress}" : "Downloads in progress";
+            DownloadProgressText.Text = progress;
+            DownloadProgressText.Visibility = hasProgress ? Visibility.Visible : Visibility.Collapsed;
+            DownloadsIcon.Visibility = hasProgress ? Visibility.Collapsed : Visibility.Visible;
+            AutomationProperties.SetName(DownloadsButton, label);
+            ToolTipService.SetToolTip(DownloadsButton, label);
         }
 
         private void ExtensionsButton_Click(object sender, RoutedEventArgs e) => OpenSettingsTab("Extensions");

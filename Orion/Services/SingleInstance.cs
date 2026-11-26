@@ -27,7 +27,7 @@ namespace Orion
         private static string GetProfileScope()
         {
             const string profileScope = "Orion.com.kagi.orion.Profile";
-            if (Environment.GetEnvironmentVariable("ORION_DESIGN_PREVIEW") != "1")
+            if (!PrivateBrowsing.IsActive && Environment.GetEnvironmentVariable("ORION_DESIGN_PREVIEW") != "1")
                 return profileScope;
 
             string path = Path.GetFullPath(Environment.GetEnvironmentVariable("LOCALAPPDATA")

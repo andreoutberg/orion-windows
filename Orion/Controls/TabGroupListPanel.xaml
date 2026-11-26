@@ -75,11 +75,24 @@
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:TabGroup">
                             <Grid>
-                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
                                     <FontIcon FontSize="16" Glyph="&#xE8B7;" />
-                                    <TextBlock VerticalAlignment="Center" Text="{x:Bind DisplayName, Mode=OneWay}" />
-                                </StackPanel>
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Text="{x:Bind DisplayName, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </Grid>
                                 <StackPanel
+                                    Grid.ColumnSpan="2"
                                     Orientation="Horizontal"
                                     Spacing="12"
                                     Visibility="Collapsed">
@@ -88,6 +101,8 @@
                                 </StackPanel>
                                 <!--  Child order is a contract: FindEditElements indexes this Grid  -->
                                 <TextBlock
+                                    Grid.Column="1"
+                                    Margin="12,0,0,0"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
                                     FontSize="12"
@@ -124,7 +139,7 @@
                 CornerRadius="8">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon FontSize="16" Glyph="&#xE8F4;" />
-                    <TextBlock VerticalAlignment="Center" Text="New Tab Group" />
+                    <TextBlock VerticalAlignment="Center" Text="New Workspace" />
                 </StackPanel>
             </Button>
 

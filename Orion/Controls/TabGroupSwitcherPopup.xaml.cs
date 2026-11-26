@@ -1,6 +1,5 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.ObjectModel;
 
@@ -11,6 +10,7 @@ namespace Orion
         public event EventHandler<TabGroup>? GroupSelected;
         public event EventHandler? NewGroupRequested;
         public event EventHandler<GroupRenamedEventArgs>? GroupRenamed;
+        public event EventHandler<TabGroup>? GroupsReordered;
 
         /// <summary>
         /// Context flyout factory, forwarded to the inner TabGroupListPanel.
@@ -21,47 +21,29 @@ namespace Orion
             set => InnerGroupList.ContextFlyoutFactory = value;
         }
 
-        public bool IsOpen
+        public ObservableCollection<TabGroup>? SavedTabGroups
         {
-            get => SwitcherPopup.IsOpen;
-            set => SwitcherPopup.IsOpen = value;
+            get => InnerGroupList.SavedTabGroups;
+            set => InnerGroupList.SavedTabGroups = value;
         }
 
         public TabGroupSwitcherPopup() => InitializeComponent();
 
-        public void SetDataSource(TabGroup? unsavedGroup, ObservableCollection<TabGroup> savedGroups)
+        public void ShowBelow(FrameworkElement anchor, TabGroup? unsavedGroup, TabGroup? selectedGroup, bool animationsEnabled)
         {
-            InnerGroupList.UnsavedTabGroup = unsavedGroup;
-            InnerGroupList.SavedTabGroups = savedGroups;
-        }
-
-        public void ShowBelow(FrameworkElement anchor, TabGroup? unsavedGroup, TabGroup? selectedGroup)
-        {
-            if (SwitcherPopup.IsOpen)
-            {
-                SwitcherPopup.IsOpen = false;
-                return;
-            }
-
             InnerGroupList.UnsavedTabGroup = unsavedGroup;
             InnerGroupList.SelectedGroup = selectedGroup;
-
-            SwitcherPopup.XamlRoot = anchor.XamlRoot;
-
-            // Position below the anchor, relative to this control's coordinate space
-            GeneralTransform transform = anchor.TransformToVisual(this);
-            Windows.Foundation.Point point = transform.TransformPoint(new Windows.Foundation.Point(0, anchor.ActualHeight));
-            SwitcherPopup.HorizontalOffset = point.X;
-            SwitcherPopup.VerticalOffset = point.Y + 4;
-
-            SwitcherPopup.IsOpen = true;
+            SwitcherFlyout.AreOpenCloseAnimationsEnabled = animationsEnabled;
+            SwitcherFlyout.ShowAt(anchor);
         }
 
-        public void Close() => SwitcherPopup.IsOpen = false;
+        public void Close() => SwitcherFlyout.Hide();
 
         private void InnerGroupList_GroupSelected(object? sender, TabGroup e) => GroupSelected?.Invoke(this, e);
 
         private void InnerGroupList_GroupRenamed(object? sender, GroupRenamedEventArgs e) => GroupRenamed?.Invoke(this, e);
+
+        private void InnerGroupList_GroupsReordered(object? sender, TabGroup e) => GroupsReordered?.Invoke(this, e);
 
         private void InnerGroupList_NewGroupRequested(object? sender, EventArgs e) => NewGroupRequested?.Invoke(this, EventArgs.Empty);
     }

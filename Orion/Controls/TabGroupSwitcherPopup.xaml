@@ -6,44 +6,35 @@
     xmlns:controls="using:Orion"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
     mc:Ignorable="d">
 
-    <primitives:Popup
-        x:Name="SwitcherPopup"
-        IsLightDismissEnabled="True"
-        ShouldConstrainToRootBounds="False">
-
-        <Border
-            Width="280"
-            MaxHeight="400"
-            Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
-            BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
-            BorderThickness="1"
-            CornerRadius="8">
-
-            <Grid>
+    <FlyoutBase.AttachedFlyout>
+        <Flyout
+            x:Name="SwitcherFlyout"
+            Placement="BottomEdgeAlignedLeft"
+            ShouldConstrainToRootBounds="False"
+            ShowMode="Standard">
+            <Grid Width="272" MaxHeight="400">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!--  Header  -->
                 <TextBlock
-                    Grid.Row="0"
-                    Padding="16,12,16,4"
+                    Margin="8,4,8,6"
                     FontSize="14"
                     FontWeight="SemiBold"
-                    Text="Tab Groups" />
+                    Text="Workspaces" />
 
-                <!--  Tab Group List  -->
                 <controls:TabGroupListPanel
                     x:Name="InnerGroupList"
                     Grid.Row="1"
+                    AutomationProperties.Name="Workspaces"
                     GroupRenamed="InnerGroupList_GroupRenamed"
                     GroupSelected="InnerGroupList_GroupSelected"
+                    GroupsReordered="InnerGroupList_GroupsReordered"
                     NewGroupRequested="InnerGroupList_NewGroupRequested" />
             </Grid>
-        </Border>
-    </primitives:Popup>
+        </Flyout>
+    </FlyoutBase.AttachedFlyout>
 </UserControl>

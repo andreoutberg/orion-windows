@@ -107,6 +107,12 @@
       <AdditionalLibraryDirectories>$(SolutionDir)vendor\cef\Release;$(SolutionDir)vendor\cef\build\libcef_dll_wrapper\Release;$(SolutionDir)vcpkg_installed\$(Platform)-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
+  <Import Project="DotNetHost.props" />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(NetHostDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="browser_engine.h" />
     <ClInclude Include="browser_engine_types.h" />
@@ -125,6 +131,7 @@
     </ClCompile>
     <ClCompile Include="cef.cpp" />
     <ClCompile Include="cef_engine_plugin.cpp" />
+    <ClCompile Include="managed_browser_host.cpp" />
     <ClCompile Include="host_shim.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>

@@ -98,6 +98,7 @@ namespace Orion
                 VerticalTabStrip.ItemTemplate = (DataTemplate)Resources["FlatVerticalTabTemplate"];
                 VerticalTabStrip.ItemsSource = ViewModel.FlattenedActiveGroupTabs;
             }
+            TrackPinFolderGroup();
         }
 
         private void UpdateCompactTabsColumn()
@@ -157,7 +158,7 @@ namespace Orion
                 else if (ViewModel.TabLayout == TabLayout.compact)
                     CompactTabStrip.SelectedItem = tab;
                 if (ViewModel.ShowSidebar && ViewModel.SelectedSidebarPage == SidebarPage.tabs)
-                    VerticalTabStrip.SelectedItem = tab;
+                    VerticalTabStrip.SelectedItem = tab.IsInPinFolder ? null : tab;
                 if (tab.Url == "about:blank")
                     _ = FocusAddressBar();
             });
@@ -349,9 +350,9 @@ namespace Orion
         /// <summary>
         /// Builds a context menu flyout for a tab with standard browser actions.
         /// </summary>
-        private MenuFlyout BuildTabContextMenu(BrowserTab tab)
+        private MenuFlyout BuildTabContextMenu(BrowserTab tab, MenuFlyout? flyout = null)
         {
-            var flyout = new MenuFlyout();
+            flyout ??= new MenuFlyout();
 
             var bookmark = new MenuFlyoutItem { Text = "Bookmark Tab" };
             bookmark.Click += (s, e) => _ = ShowAddBookmarkDialog(tab);
@@ -373,7 +374,8 @@ namespace Orion
             var moveTab = new MenuFlyoutSubItem { Text = "Move Tab" };
             foreach (TabGroupViewModel groupVm in ViewModel.TabGroups)
             {
-                if (groupVm == ViewModel.ActiveGroup)
+                if (groupVm == ViewModel.ActiveGroup || tab.Pin?.Scope == TabPinScope.Profile
+                    || (tab.IsPinned && (!groupVm.Model.IsSaved || groupVm.Model.IsPrivate)))
                     continue;
                 TabGroup moveTarget = groupVm.Model;
                 var groupItem = new MenuFlyoutItem { Text = moveTarget.DisplayName };
@@ -386,15 +388,15 @@ namespace Orion
                 };
                 moveTab.Items.Add(groupItem);
             }
-            if (moveTab.Items.Count == 0)
+            if (moveTab.Items.Count == 0 && !tab.IsPinned)
                 moveTab.Items.Add(new MenuFlyoutItem { Text = "(No other groups)", IsEnabled = false });
-            flyout.Items.Add(moveTab);
+            if (moveTab.Items.Count > 0)
+                flyout.Items.Add(moveTab);
 
             flyout.Items.Add(new MenuFlyoutSeparator());
 
-            var pin = new MenuFlyoutItem { Text = tab.IsPinned ? "Unpin Tab" : "Pin Tab" };
-            pin.Click += (s, e) => tab.IsPinned = !tab.IsPinned;
-            flyout.Items.Add(pin);
+            if (ViewModel.ActiveGroup?.Model is { IsPrivate: false } workspace)
+                AddTabPinActions(flyout, tab, workspace);
 
             var reload = new MenuFlyoutItem { Text = "Reload Tab" };
             BrowserTabViewModel? tabVm = ViewModel.FindTabViewModel(tab);
@@ -446,6 +448,71 @@ namespace Orion
             flyout.Items.Add(closeRight);
 
             return flyout;
+        }
+
+        private void AddTabPinActions(MenuFlyout flyout, BrowserTab tab, TabGroup workspace)
+        {
+            const string PinScopeMenuGroup = "Tab pin scope";
+            var pinHere = new RadioMenuFlyoutItem
+            {
+                Text = workspace.IsSaved ? "Pin to this workspace" : "Pin to this workspace (save workspace first)",
+                GroupName = PinScopeMenuGroup,
+                IsChecked = tab.Pin?.Scope == TabPinScope.Workspace,
+                IsEnabled = workspace.IsSaved,
+            };
+            pinHere.Click += (_, _) => SetTabPinScope(tab, TabPinScope.Workspace);
+            flyout.Items.Add(pinHere);
+
+            var pinShared = new RadioMenuFlyoutItem
+            {
+                Text = "Pin across workspaces",
+                GroupName = PinScopeMenuGroup,
+                IsChecked = tab.Pin?.Scope == TabPinScope.Profile,
+            };
+            pinShared.Click += (_, _) => SetTabPinScope(tab, TabPinScope.Profile);
+            flyout.Items.Add(pinShared);
+
+            if (tab.Pin is not { } pin)
+                return;
+
+            AddPinFolderMenu(flyout, tab, workspace);
+
+            bool isOnSavedPage = tab.Url == pin.Url;
+            var reset = new MenuFlyoutItem { Text = "Reset to saved page", IsEnabled = !isOnSavedPage };
+            reset.Click += (_, _) =>
+            {
+                SwitchToTab(tab);
+                if (ViewModel.ActiveTab == tab && tab.Pin is { } savedPage)
+                    NavigateToUrl(savedPage.Url);
+            };
+            flyout.Items.Add(reset);
+
+            var savePage = new MenuFlyoutItem { Text = "Use current page as saved page", IsEnabled = !isOnSavedPage };
+            savePage.Click += (_, _) =>
+            {
+                if (!ViewModel.UseCurrentPageAsPin(tab))
+                    _ = PopupDialog.ShowMessageAsync(this, "Couldn’t update the pin", "Try saving the page again.", closeButton: "OK");
+            };
+            flyout.Items.Add(savePage);
+
+            var unpin = new MenuFlyoutItem { Text = "Unpin tab" };
+            unpin.Click += (_, _) => SetTabPinScope(tab, null);
+            flyout.Items.Add(unpin);
+        }
+
+        private void SetTabPinScope(BrowserTab tab, TabPinScope? scope)
+        {
+            _suppressTabStripSelection = true;
+            try
+            {
+                if (!ViewModel.SetTabPinScope(tab, scope))
+                    _ = PopupDialog.ShowMessageAsync(this, "Couldn’t update the pin", "Try changing the pin again.", closeButton: "OK");
+            }
+            finally
+            {
+                _suppressTabStripSelection = false;
+                SyncTabStripSelection();
+            }
         }
 
         private void VerticalTab_RightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs args)
@@ -500,12 +567,12 @@ namespace Orion
                 return;
 
             TabGroup group = activeGroup.Model;
+            if (!group.TabExists(tab))
+                return;
             BrowserTab? parent = group.FindParentTab(tab);
             ObservableCollection<BrowserTab> siblings = parent?.Children ?? group.Tabs;
             int index = siblings.IndexOf(tab);
-            long afterTabId = index + 1 < siblings.Count ? siblings[index + 1].Id : 0;
-
-            OrionBackend.MoveTab(tab.Id, group.Id, parent?.Id ?? 0, afterTabId, isNested);
+            ViewModel.PersistTabReorder(tab, group, parent, siblings.Skip(index + 1), isNested);
         }
 
         private void NewTab_Click(object sender, RoutedEventArgs e) => CreateNewTab(ViewModel.ResolveNewTabUrl());
