@@ -45,9 +45,12 @@ namespace Orion
                 _ = _group.FindContainingCollection(tab).Remove(tab);
 
             int pinnedCount = _group.Tabs.Count(t => t.IsPinned);
-            if (tab.IsPinned && index > pinnedCount)
-                index = pinnedCount;
-            else if (!tab.IsPinned && index < pinnedCount)
+            int sharedCount = _group.Tabs.Count(t => t.Pin?.Scope == TabPinScope.Profile);
+            if (tab.Pin?.Scope == TabPinScope.Profile)
+                index = Math.Min(index, sharedCount);
+            else if (tab.IsPinned)
+                index = Math.Clamp(index, sharedCount, pinnedCount);
+            else if (index < pinnedCount)
                 index = pinnedCount;
 
             BrowserTab? target = _group.FlattenedTabs.ElementAtOrDefault(index);

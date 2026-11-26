@@ -19,6 +19,43 @@ namespace Orion
         {
             var menu = new MenuFlyout { Placement = FlyoutPlacementMode.BottomEdgeAlignedRight };
 
+            var switchWorkspace = new MenuFlyoutItem
+            {
+                Text = "Switch Workspace",
+                Icon = new FontIcon { Glyph = "\uE8B7" },
+            };
+            bool showWorkspaceSwitcher = false;
+            switchWorkspace.Click += (_, _) => showWorkspaceSwitcher = true;
+            menu.Opening += (_, _) => switchWorkspace.Visibility = _sidebarPresentation == SidebarPresentation.Hidden
+                ? Visibility.Visible : Visibility.Collapsed;
+            menu.Closed += (_, _) =>
+            {
+                if (!showWorkspaceSwitcher)
+                    return;
+                showWorkspaceSwitcher = false;
+                ShowTabGroupSwitcher(MenuButton);
+            };
+            menu.Items.Add(switchWorkspace);
+
+            var newTab = new MenuFlyoutItem
+            {
+                Text = "New Tab",
+                Icon = new FontIcon { Glyph = "\uE710" },
+                KeyboardAcceleratorTextOverride = ShortcutText("NewTab"),
+            };
+            newTab.Click += NewTab_Click;
+            menu.Items.Add(newTab);
+
+            var downloads = new MenuFlyoutItem
+            {
+                Text = "Downloads",
+                Icon = new FontIcon { Glyph = "\uE896" },
+                KeyboardAcceleratorTextOverride = ShortcutText("ShowDownloads"),
+            };
+            downloads.Click += DownloadsButton_Click;
+            menu.Items.Add(downloads);
+            menu.Items.Add(new MenuFlyoutSeparator());
+
             // --- Orion ---
             var orion = new MenuFlyoutSubItem { Text = "Orion" };
             orion.Items.Add(new MenuFlyoutItem { Text = "About Orion..." });
@@ -27,6 +64,9 @@ namespace Orion
             orion.Items.Add(new MenuFlyoutSeparator());
             orion.Items.Add(new MenuFlyoutItem { Text = "Popular Extensions..." });
             ((MenuFlyoutItem)orion.Items[^1]).Click += PopularExtensions_Click;
+            var manageExtensions = new MenuFlyoutItem { Text = "Manage Extensions..." };
+            manageExtensions.Click += ExtensionsButton_Click;
+            orion.Items.Add(manageExtensions);
             orion.Items.Add(Disabled(new MenuFlyoutItem { Text = "Check for Updates..." }));
             orion.Items.Add(new MenuFlyoutSeparator());
             orion.Items.Add(new MenuFlyoutItem { Text = "Settings...", KeyboardAcceleratorTextOverride = ShortcutText("Settings") });
@@ -102,7 +142,7 @@ namespace Orion
             ((MenuFlyoutItem)file.Items[^1]).Click += NewTab_Click;
             file.Items.Add(new MenuFlyoutItem { Text = "New Window", KeyboardAcceleratorTextOverride = ShortcutText("NewWindow") });
             ((MenuFlyoutItem)file.Items[^1]).Click += NewWindow_Click;
-            file.Items.Add(Disabled(new MenuFlyoutItem { Text = "New Private Window", KeyboardAcceleratorTextOverride = "Ctrl+U" }));
+            file.Items.Add(CreatePrivateWindowMenuItem());
             file.Items.Add(Disabled(new MenuFlyoutItem { Text = "New Focus Window", KeyboardAcceleratorTextOverride = "Ctrl+U" }));
             file.Items.Add(new MenuFlyoutSeparator());
             file.Items.Add(Disabled(new MenuFlyoutItem { Text = "Open File...", KeyboardAcceleratorTextOverride = "Ctrl+O" }));
@@ -256,9 +296,9 @@ namespace Orion
             view.Items.Add(new MenuFlyoutSeparator());
             view.Items.Add(Disabled(new MenuFlyoutItem { Text = "Show Reader", KeyboardAcceleratorTextOverride = "Shift+Super+R" }));
             view.Items.Add(new MenuFlyoutItem { Text = "Show Tab Overview", KeyboardAcceleratorTextOverride = ShortcutText("TabOverview") });
-            ((MenuFlyoutItem)view.Items[^1]).Click += (s, e) => ToggleTabOverview();
+            ((MenuFlyoutItem)view.Items[^1]).Click += TabOverviewButton_Click;
             view.Items.Add(new MenuFlyoutItem { Text = "Show Downloads", KeyboardAcceleratorTextOverride = ShortcutText("ShowDownloads") });
-            ((MenuFlyoutItem)view.Items[^1]).Click += (s, e) => OpenDownloadsTab();
+            ((MenuFlyoutItem)view.Items[^1]).Click += DownloadsButton_Click;
             view.Items.Add(new MenuFlyoutSeparator());
             view.Items.Add(Disabled(new MenuFlyoutItem { Text = "Enable Focus Mode", KeyboardAcceleratorTextOverride = "Shift+Super+F" }));
             view.Items.Add(new MenuFlyoutSeparator());
@@ -376,7 +416,7 @@ namespace Orion
             bookmarks.Items.Add(showReadingList);
             bookmarks.Items.Add(new MenuFlyoutSeparator());
             bookmarks.Items.Add(new MenuFlyoutItem { Text = "Add Bookmark...", KeyboardAcceleratorTextOverride = ShortcutText("AddBookmark") });
-            ((MenuFlyoutItem)bookmarks.Items[^1]).Click += (s, e) => _ = ShowAddBookmarkDialog();
+            ((MenuFlyoutItem)bookmarks.Items[^1]).Click += BookmarkButton_Click;
             bookmarks.Items.Add(Disabled(new MenuFlyoutItem { Text = "Add Bookmarks for Current Tabs..." }));
             var addBookmarkFolder = new MenuFlyoutItem { Text = "Add Bookmark Folder" };
             addBookmarkFolder.Click += (s, e) => _ = ShowAddBookmarkFolderDialog();

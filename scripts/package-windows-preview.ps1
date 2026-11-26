@@ -18,12 +18,22 @@ if ((Test-Path -LiteralPath $zipPath) -or (Test-Path -LiteralPath $checksumPath)
     throw 'Choose a new package output directory for this build.'
 }
 
-$required = @('Orion.exe', 'Orion.dll', 'Orion.pri', 'OrionBackend.dll', 'orion_net.dll',
+$required = @('Orion.exe', 'Orion.dll', 'Orion.pri', 'OrionBackend.dll', 'orion_net.dll', 'nethost.dll',
+    'engines/blink/OrionEngineB.exe', 'engines/blink/OrionEngineB.pri', 'engines/blink/chrome_elf.dll',
     'engines/blink/OrionEngineB.dll', 'engines/blink/libcef.dll', 'engines/blink/resources.pak')
 foreach ($file in $required) {
     if (-not (Test-Path -LiteralPath (Join-Path $source $file) -PathType Leaf)) {
         throw "Missing required publish file: $file"
     }
+}
+
+$brokerHash = (Get-FileHash (Join-Path $source 'engines/blink/OrionEngineB.exe')).Hash
+if ($brokerHash -ne (Get-FileHash (Join-Path $root 'vendor/cef/Release/bootstrap.exe')).Hash) {
+    throw 'The preview broker does not match the pinned CEF bootstrap.'
+}
+$priHash = (Get-FileHash (Join-Path $source 'Orion.pri')).Hash
+if ($priHash -ne (Get-FileHash (Join-Path $source 'engines/blink/OrionEngineB.pri')).Hash) {
+    throw 'The sandbox broker has a stale WinUI resource index.'
 }
 
 $archive = [IO.Compression.ZipFile]::Open($zipPath, [IO.Compression.ZipArchiveMode]::Create)
@@ -37,6 +47,8 @@ try {
         (Join-Path $PSScriptRoot 'launch-windows-preview.cmd'), 'Open Orion Search+ Preview.cmd')
     [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive,
         (Join-Path $root 'docs_ai/windows-preview-release.md'), 'PREVIEW.md')
+    [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive,
+        (Join-Path $root 'docs_ai/searchplus-design.md'), 'searchplus-design.md')
     foreach ($notice in @(
         @{ Path = 'LICENSE'; Name = 'Orion.txt' },
         @{ Path = 'vendor/cef/LICENSE.txt'; Name = 'CEF.txt' },

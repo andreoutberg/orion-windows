@@ -113,6 +113,8 @@
        publish uses (ci/build_*, publish.bat via vsenv). dotnet-CLI paths that see
        'Core' here (dotnet format, dotnet test) don't need the native DLL. -->
   <ItemGroup Condition="'$(MSBuildRuntimeType)' != 'Core'">
+    <!-- The native project generates this after the first C# source glob is evaluated. -->
+    <Compile Include="Interop\Generated\NativeTypes.cs" Condition="!Exists('Interop\Generated\NativeTypes.cs')" />
     <!-- Test extensions are packaged by the core module's CMake target `webextensions`
          (external/orion-gtk/app/src/core_module/cmake/PackageWebExtensions.cmake) into
          build\core_module\*.crx / *.xpi; this reference only orders the build. -->
@@ -269,6 +271,10 @@
        everything flat in Release/ — CefResourceDir resolves to whichever
        directory contains the .pak files. Explicit file list since the
        source-build dir contains many non-runtime artifacts. -->
+  <Import Project="..\OrionBackend\DotNetHost.props" />
+  <ItemGroup>
+    <None Include="$(NetHostDir)\nethost.dll" Link="nethost.dll" CopyToOutputDirectory="IfDifferent" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug' or '$(Configuration)' == 'LocalDebug'">
     <CefSourceDir>..\vendor\cef\Debug\</CefSourceDir>
   </PropertyGroup>
@@ -291,10 +297,10 @@
       <Visible>false</Visible>
     </None>
     <!-- EXEs -->
-    <None Include="$(CefSourceDir)bootstrap.exe;$(CefSourceDir)bootstrapc.exe">
+    <None Include="$(CefSourceDir)bootstrap.exe">
       <CopyToOutputDirectory>IfDifferent</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <Link>engines\blink\%(Filename)%(Extension)</Link>
+      <Link>engines\blink\OrionEngineB.exe</Link>
       <Visible>false</Visible>
     </None>
     <!-- Data files -->
@@ -384,10 +390,19 @@
     <PublishTrimmed>False</PublishTrimmed>
   </PropertyGroup>
 
+  <!-- Unpackaged WinUI looks for the main PRI by the process image's name.
+       Orion's public apphost and its sandbox broker use the same index. -->
+  <Target Name="CopySandboxResourceIndex" AfterTargets="Build" Condition="'$(WindowsPackageType)' == 'None'">
+    <Copy SourceFiles="$(TargetDir)$(ProjectPriFileName)" DestinationFiles="$(TargetDir)engines\blink\OrionEngineB.pri" SkipUnchangedFiles="true" />
+  </Target>
   <Target Name="IncludeExtraFilesInPublish" AfterTargets="ComputeFilesToPublish" Condition="'$(WindowsPackageType)' == 'None'">
     <ItemGroup>
       <ResolvedFileToPublish Include="$(TargetDir)$(ProjectPriFileName)">
         <RelativePath>$(ProjectPriFileName)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+      <ResolvedFileToPublish Include="$(TargetDir)engines\blink\OrionEngineB.pri">
+        <RelativePath>engines\blink\OrionEngineB.pri</RelativePath>
         <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       </ResolvedFileToPublish>
     </ItemGroup>

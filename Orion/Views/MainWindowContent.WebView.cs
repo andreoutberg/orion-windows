@@ -79,7 +79,7 @@ namespace Orion
                 {
                     if (!_historyDisabled)
                         OrionBackend.AddHistoryEntry(ViewModel.ActiveProfileId, tab.Url, title);
-                    if (tab.Id != 0)
+                    if (tab.Id != 0 && !tab.IsPinned)
                         OrionBackend.UpdateTabName(tab.Id, title);
                 }
             };
@@ -95,7 +95,7 @@ namespace Orion
                     // Only the active tab can own an open prompt.
                     PermissionPromptControl.DismissForNavigation(url);
                 }
-                if (tab.Id != 0)
+                if (tab.Id != 0 && !tab.IsPinned)
                     OrionBackend.UpdateTabUri(tab.Id, url);
             };
             webView.UnhandledKeyEvent += (vkCode, modifiers) =>
@@ -386,7 +386,7 @@ namespace Orion
                 total += read;
             if (total > MaxFaviconBytes)
             {
-                LogDebug($"Favicon too large (>{MaxFaviconBytes} bytes): {iconUrl}");
+                LogDebug($"Favicon too large (>{MaxFaviconBytes} bytes)");
                 return null;
             }
             if (total == 0)
@@ -398,6 +398,9 @@ namespace Orion
 
         private async Task DownloadAndStoreFaviconAsync(BrowserTab tab, string pageUrl, string[] iconUrls)
         {
+            if (PrivateBrowsing.IsActive)
+                return;
+
             // Favicons are downloaded over HTTP(S) only.
             iconUrls = Array.FindAll(iconUrls, u =>
                 Uri.TryCreate(u, UriKind.Absolute, out Uri? uri)
@@ -405,13 +408,8 @@ namespace Orion
             if (iconUrls.Length == 0)
                 return;
 
-            LogDebug($"Favicon candidates for {pageUrl}: {iconUrls.Length} URLs");
-            foreach (string u in iconUrls)
-                LogDebug($"  candidate: {u} (score={ScoreFaviconUrl(u)})");
-
             Array.Sort(iconUrls, (a, b) => ScoreFaviconUrl(b).CompareTo(ScoreFaviconUrl(a)));
 
-            LogDebug($"  picking: {iconUrls[0]}");
 
             foreach (string iconUrl in iconUrls)
             {
@@ -422,14 +420,14 @@ namespace Orion
                         continue;
                     if (data.Length >= 4 && data.AsSpan(0, 4).SequenceEqual(s_pdfMagic))
                     {
-                        LogDebug($"Favicon rejected (PDF): {iconUrl}");
+                        LogDebug("Favicon rejected (PDF)");
                         continue;
                     }
                     Microsoft.UI.Xaml.Media.ImageSource? image =
                         await BrowserTab.CreateFaviconImageAsync(data, iconUrl);
                     if (image == null)
                     {
-                        LogDebug($"Favicon rejected (failed to decode): {iconUrl}");
+                        LogDebug("Favicon rejected (failed to decode)");
                         continue;
                     }
                     OrionBackend.SetFavicon(pageUrl, iconUrl, data);
@@ -438,7 +436,7 @@ namespace Orion
                 }
                 catch (Exception ex)
                 {
-                    LogDebug($"Favicon download failed for {iconUrl}: {ex.Message}");
+                    LogDebug($"Favicon download failed ({ex.GetType().Name})");
                 }
             }
         }

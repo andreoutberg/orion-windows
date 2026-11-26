@@ -11,6 +11,10 @@ using Windows.Storage.Streams;
 
 namespace Orion
 {
+    internal enum TabPinScope { Workspace, Profile }
+
+    internal sealed record PinnedPage(TabPinScope Scope, string Url, string Title);
+
     /// <summary>
     /// Represents a browser tab with observable properties for data binding.
     /// </summary>
@@ -72,7 +76,12 @@ namespace Orion
         public partial string Title { get; set; } = "Blank Tab";
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(StartPageIconVisibility))]
+        [NotifyPropertyChangedFor(nameof(SiteIconVisibility))]
         public partial string Url { get; set; } = "about:blank";
+
+        public Visibility StartPageIconVisibility => IsStartPageUrl(Url) ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility SiteIconVisibility => IsStartPageUrl(Url) ? Visibility.Collapsed : Visibility.Visible;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(DisplayHeader))]
@@ -80,6 +89,28 @@ namespace Orion
         [NotifyPropertyChangedFor(nameof(CloseButtonVisibility))]
         [NotifyPropertyChangedFor(nameof(TabMaxWidth))]
         public partial bool IsPinned { get; set; }
+
+        internal PinnedPage? Pin { get; private set; }
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(VerticalTabVisibility))]
+        internal partial bool IsInPinFolder { get; set; }
+
+        public Visibility VerticalTabVisibility => IsInPinFolder ? Visibility.Collapsed : Visibility.Visible;
+
+        internal void SetPin(PinnedPage? pin)
+        {
+            Pin = pin;
+            IsPinned = pin != null;
+        }
+
+        partial void OnIsPinnedChanged(bool value)
+        {
+            if (value)
+                Pin ??= new PinnedPage(TabPinScope.Workspace, Url, Title);
+            else
+                Pin = null;
+        }
 
         public string DisplayHeader => IsPinned || !GlobalShowTitles ? "" : Title;
 
@@ -106,6 +137,7 @@ namespace Orion
         [NotifyPropertyChangedFor(nameof(ShowsLoadingIndicator))]
         [NotifyPropertyChangedFor(nameof(FaviconIconSource))]
         [NotifyPropertyChangedFor(nameof(FaviconImageVisibility))]
+        [NotifyPropertyChangedFor(nameof(FaviconPlaceholderVisibility))]
         public partial bool IsLoading { get; set; }
 
         /// <summary>
@@ -116,6 +148,7 @@ namespace Orion
 
         /// <summary>Favicon image (or placeholder) visibility; hidden while the spinner shows.</summary>
         public Visibility FaviconImageVisibility => IsLoading ? Visibility.Collapsed : Visibility.Visible;
+        public Visibility FaviconPlaceholderVisibility => IsLoading || FaviconImage != null ? Visibility.Collapsed : Visibility.Visible;
 
         /// <summary>
         /// Latest captured page thumbnail as encoded JPEG bytes; null until
@@ -176,6 +209,7 @@ namespace Orion
         /// </summary>
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(FaviconIconSource))]
+        [NotifyPropertyChangedFor(nameof(FaviconPlaceholderVisibility))]
         public partial ImageSource? FaviconImage { get; set; }
 
         public static bool GlobalShowFavicons { get; set; } = true;
@@ -216,12 +250,6 @@ namespace Orion
         {
             if (InternalPageTitles.TryGetValue(value, out string? title))
                 Title = title;
-        }
-
-        partial void OnIsPinnedChanged(bool oldValue, bool newValue)
-        {
-            if (Id != 0 && GroupId != 0)
-                OrionBackend.UpdateTabPinned(Id, GroupId, newValue);
         }
 
         // Collection of child items. Used for nested nodes in the TreeView.

@@ -41,6 +41,8 @@ public:
     // returns false on failure (subsequent calls retry).
     bool open();
     bool is_open() const { return m_db != nullptr; }
+    bool use_in_memory_storage();
+    bool is_in_memory() const { return m_in_memory; }
 
     // One-time split of a legacy single profiles.db into per-profile
     // databases + registry seeding. No-op when orion.db already has profiles
@@ -100,6 +102,7 @@ private:
     bool apply_schema();
 
     sqlite3* m_db = nullptr;
+    bool m_in_memory = false;
 };
 
 } // namespace orion

@@ -50,6 +50,24 @@ namespace Orion
             Assert.Equal("My Tab", tab.Title);
         }
 
+        [Fact]
+        public void StartPageMarkFollowsTheCurrentUrl()
+        {
+            var tab = new BrowserTab();
+            var changed = new List<string>();
+            tab.PropertyChanged += (_, e) => changed.Add(e.PropertyName!);
+
+            tab.Url = BrowserTab.StartPageUrl;
+            Assert.Equal(Visibility.Visible, tab.StartPageIconVisibility);
+            Assert.Equal(Visibility.Collapsed, tab.SiteIconVisibility);
+            Assert.Contains(nameof(BrowserTab.StartPageIconVisibility), changed);
+            Assert.Contains(nameof(BrowserTab.SiteIconVisibility), changed);
+
+            tab.Url = "https://example.com/";
+            Assert.Equal(Visibility.Collapsed, tab.StartPageIconVisibility);
+            Assert.Equal(Visibility.Visible, tab.SiteIconVisibility);
+        }
+
         [Theory]
         [InlineData("orion://newtab", true)]
         [InlineData("about:blank", true)]

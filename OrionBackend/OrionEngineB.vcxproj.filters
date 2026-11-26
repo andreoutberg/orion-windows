@@ -49,6 +49,9 @@
     <ClCompile Include="cef.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="managed_browser_host.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="cef_engine_plugin.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

@@ -77,7 +77,11 @@ namespace Orion
         /// <summary>
         /// Resets shared state between unit tests.
         /// </summary>
-        internal static void ResetSharedState() => _sharedSavedGroupsByProfile.Clear();
+        internal static void ResetSharedState()
+        {
+            _sharedSavedGroupsByProfile.Clear();
+            s_sharedPinsByProfile.Clear();
+        }
 
         /// <summary>
         /// Per-window BrowserTabViewModel wrappers, keyed by model.
@@ -219,6 +223,7 @@ namespace Orion
         {
             ActiveProfile = profile;
             _profileId = profile.Id;
+            _sharedPins = GetSharedPins(_profileId);
             TabGroups = [];
             TabGroups.CollectionChanged += OnTabGroupViewModelsCollectionChanged;
 
@@ -232,7 +237,6 @@ namespace Orion
                 long id = OrionBackend.CreateTabGroupEntry(_profileId,
                     isTabGroup: true, hasUiWindow: true);
                 _ = CreateTabGroupFromDb(id);
-                RestorePinnedTabs();
                 _ = CreateNewTab(ResolveNewWindowUrl());
             }
 
@@ -242,14 +246,13 @@ namespace Orion
 
             // React when other windows add/remove shared saved groups.
             SharedSavedGroupsForProfile.CollectionChanged += OnSharedSavedGroupsChanged;
+            _sharedPins.Changed += OnSharedPinsChanged;
         }
 
         private void RestoreTabGroups(List<OrionBackend.PersistedTabGroup> groups)
         {
             foreach (OrionBackend.PersistedTabGroup g in groups)
                 _ = RestoreSingleGroup(g);
-
-            RestorePinnedTabs();
 
             // Ensure at least one group with one tab
             if (TabGroups.Count == 0)
@@ -262,39 +265,6 @@ namespace Orion
             else if (ActiveGroup != null && !ActiveGroup.Model.FlattenedTabs.Any())
             {
                 _ = CreateNewTab(ResolveNewWindowUrl());
-            }
-        }
-
-        private void RestorePinnedTabs()
-        {
-            long pinnedWindowId = OrionBackend.GetSharedPinnedTabsWindowId(_profileId);
-            if (pinnedWindowId == 0) return;
-
-            List<OrionBackend.PersistedTab> pinnedTabs = OrionBackend.GetTabs(pinnedWindowId);
-            if (pinnedTabs.Count == 0) return;
-
-            bool autoActivate = OrionBackend.GetBoolSetting(_profileId,
-                "settings::tabs::auto_activate_pinned_tabs_on_loading", "settings::tabs", "auto_activate_pinned_tabs_on_loading", false);
-
-            foreach (TabGroupViewModel groupVm in TabGroups)
-            {
-                TabGroup group = groupVm.Model;
-                int insertIndex = 0;
-                foreach (OrionBackend.PersistedTab t in pinnedTabs)
-                {
-                    var tab = new BrowserTab
-                    {
-                        Id = t.Id,
-                        Title = t.Name,
-                        Url = t.Uri.Length > 0 ? t.Uri : "about:blank",
-                        IsPinned = true,
-                        GroupId = group.Id,
-                        IsHibernated = !autoActivate,
-                    };
-                    group.Tabs.Insert(insertIndex++, tab);
-                    _ = LoadCachedFaviconAsync(tab);
-                }
-                group.NotifyTreeChanged();
             }
         }
 
@@ -328,7 +298,7 @@ namespace Orion
             }
 
             // New model — build from DB
-            TabGroupViewModel newVm = CreateTabGroupFromDb(g.Id, g.Name, isSaved, g.KeyboardShortcut);
+            TabGroupViewModel newVm = CreateTabGroupFromDb(g.Id, g.Name, isSaved, g.KeyboardShortcut, g.IsPrivate);
             TabGroup group = newVm.Model;
 
             List<OrionBackend.PersistedTab> tabs = OrionBackend.GetTabs(g.Id);
@@ -336,16 +306,7 @@ namespace Orion
             var tabMap = new Dictionary<long, BrowserTab>();
             foreach (OrionBackend.PersistedTab t in tabs)
             {
-                var tab = new BrowserTab
-                {
-                    Id = t.Id,
-                    Title = t.Name,
-                    Url = t.Uri.Length > 0 ? t.Uri : "about:blank",
-                    IsPinned = t.IsPinned,
-                    GroupId = g.Id,
-                    IsHibernated = true, // Don't load WebKit until activated
-                };
-                tabMap[t.Id] = tab;
+                tabMap[t.Id] = RestoreTab(t, g.Id);
             }
 
             // Reconstruct parent-child tree (core returns tabs pre-sorted)
@@ -357,13 +318,13 @@ namespace Orion
                 else
                     group.Tabs.Add(tab);
             }
+            group.EnforcePinnedConstraints();
+            RestorePinFolders(group);
             group.NotifyTreeChanged();
 
             // Restore selected tab
-            if (g.SelectedTabId != 0 && tabMap.TryGetValue(g.SelectedTabId, out BrowserTab? selectedTab))
-                newVm.ActiveTab = selectedTab;
-            else if (group.FlattenedTabs.Any())
-                newVm.ActiveTab = group.FlattenedTabs.First();
+            newVm.ActiveTab = group.FlattenedTabs.FirstOrDefault(t => t.Id == g.SelectedTabId)
+                ?? tabMap.Values.FirstOrDefault() ?? group.Tabs.FirstOrDefault();
 
             foreach (BrowserTab tab in tabMap.Values)
                 _ = LoadCachedFaviconAsync(tab);
@@ -458,13 +419,14 @@ namespace Orion
         /// Creates a TabGroup backed by an existing DB ID, wraps it in a ViewModel.
         /// </summary>
         private TabGroupViewModel CreateTabGroupFromDb(long tabGroupId, string name = "",
-            bool isSaved = false, string keyboardShortcut = "")
+            bool isSaved = false, string keyboardShortcut = "", bool? isPrivate = null)
         {
             TabGroup group = new()
             {
                 Id = tabGroupId,
                 Name = name,
                 IsSaved = isSaved,
+                IsPrivate = isPrivate ?? OrionBackend.IsPrivateSession,
                 Order = TabGroups.Count,
                 KeyboardShortcut = keyboardShortcut,
             };
@@ -600,9 +562,9 @@ namespace Orion
         }
 
         /// <summary>
-        /// Display label for the active group (name if saved, tab count if unsaved).
+        /// Name used in the workspace switcher above the tab rail.
         /// </summary>
-        public string ActiveGroupName => ActiveGroup?.Model.DisplayName ?? string.Empty;
+        public string ActiveGroupName => ActiveGroup?.WorkspaceName ?? string.Empty;
 
         /// <summary>
         /// Visibility for horizontal tab strip (hidden in vertical layout).
@@ -692,15 +654,18 @@ namespace Orion
                 Id = newId,
                 Name = name,
                 IsSaved = true,
+                IsPrivate = unsaved.IsPrivate,
                 Order = TabGroups.Count,
             };
             var savedVm = new TabGroupViewModel(savedGroup);
 
             // Move all root tabs (children follow their parents) from unsaved to saved
-            BrowserTab[] rootTabs = [.. unsaved.Tabs];
-            unsaved.Tabs.Clear();
+            BrowserTab[] rootTabs = [.. unsaved.Tabs.Where(t => t.Pin?.Scope != TabPinScope.Profile)];
             foreach (BrowserTab tab in rootTabs)
+            {
+                _ = unsaved.Tabs.Remove(tab);
                 savedGroup.Tabs.Add(tab);
+            }
 
             // Update DB group ID for all tabs (including nested children)
             foreach (BrowserTab tab in savedGroup.FlattenedTabs)
@@ -713,11 +678,10 @@ namespace Orion
             unsaved.NotifyTreeChanged();
             savedGroup.NotifyTreeChanged();
 
-            // Restore active tab on the saved group
-            savedVm.ActiveTab = previousActive ?? savedGroup.FlattenedTabs.FirstOrDefault();
-
             // Add to TabGroups (triggers shared group sync)
             TabGroups.Add(savedVm);
+            savedVm.ActiveTab = savedGroup.FlattenedTabs.FirstOrDefault(t => t.Id == previousActive?.Id)
+                ?? savedGroup.FlattenedTabs.FirstOrDefault();
 
             // Create a fresh tab in the unsaved group
             ActiveGroup = unsavedVm;
@@ -746,12 +710,13 @@ namespace Orion
                 Id = newId,
                 Name = name,
                 IsSaved = true,
+                IsPrivate = source.IsPrivate,
                 Order = TabGroups.Count,
             };
             var dupVm = new TabGroupViewModel(dupGroup);
 
             // Deep-copy the tab tree
-            foreach (BrowserTab rootTab in source.Tabs)
+            foreach (BrowserTab rootTab in source.Tabs.Where(t => t.Pin?.Scope != TabPinScope.Profile))
                 dupGroup.Tabs.Add(CopyTabTree(rootTab, newId));
 
             dupGroup.NotifyTreeChanged();
@@ -768,17 +733,19 @@ namespace Orion
         /// </summary>
         private BrowserTab CopyTabTree(BrowserTab source, long groupId)
         {
-            long dbId = OrionBackend.CreateTab(groupId, source.Url, source.Title, source.IsPinned);
+            string url = source.Pin?.Url ?? source.Url;
+            string title = source.Pin?.Title ?? source.Title;
+            long dbId = OrionBackend.CreateTab(groupId, url, title, source.IsPinned);
             var copy = new BrowserTab
             {
                 Id = dbId,
-                Title = source.Title,
-                Url = source.Url,
-                IsPinned = source.IsPinned,
+                Title = title,
+                Url = url,
                 GroupId = groupId,
                 IsHibernated = true,
                 FaviconImage = source.FaviconImage,
             };
+            copy.SetPin(source.Pin);
             foreach (BrowserTab child in source.Children)
                 copy.Children.Add(CopyTabTree(child, groupId));
             return copy;
@@ -934,6 +901,8 @@ namespace Orion
             }
 
             TabGroup group = ActiveGroup.Model;
+            if (tab.Pin?.Scope == TabPinScope.Profile)
+                _ = group.DismissedSharedPins.Add(tab.Id);
 
             bool returnToLastActive = OrionBackend.GetBoolSetting(_profileId,
                 "settings::tabs::return_to_last_active_tab_when_closing_current_tab", "settings::tabs",
@@ -1069,11 +1038,13 @@ namespace Orion
 
             TabGroup group = ActiveGroup.Model;
             BrowserTab[] toClose = [.. group.FlattenedTabs.Where(t => t != tab && !(protectPinned && t.IsPinned))];
-            long[] dbIds = [.. toClose.Where(t => t.Id != 0).Select(t => t.Id)];
+            long[] dbIds = [.. toClose.Where(t => t.Id != 0 && !t.IsPinned).Select(t => t.Id)];
             foreach (BrowserTab t in toClose)
             {
+                if (t.Pin?.Scope == TabPinScope.Profile)
+                    _ = group.DismissedSharedPins.Add(t.Id);
                 group.RemoveTab(t);
-                _ = _tabViewModels.Remove(t);
+                DisposeTabViewModel(t);
             }
             if (dbIds.Length > 0)
                 OrionBackend.DeleteTabs(dbIds);
@@ -1098,11 +1069,13 @@ namespace Orion
                 return;
 
             BrowserTab[] toClose = [.. flat.Skip(index + 1).Where(t => !(protectPinned && t.IsPinned))];
-            long[] dbIds = [.. toClose.Where(t => t.Id != 0).Select(t => t.Id)];
+            long[] dbIds = [.. toClose.Where(t => t.Id != 0 && !t.IsPinned).Select(t => t.Id)];
             foreach (BrowserTab t in toClose)
             {
-                ActiveGroup.Model.RemoveTab(t);
-                _ = _tabViewModels.Remove(t);
+                if (t.Pin?.Scope == TabPinScope.Profile)
+                    _ = ActiveGroup.Model.DismissedSharedPins.Add(t.Id);
+                ActiveGroup.RemoveTab(t, returnToLastActive: true);
+                DisposeTabViewModel(t);
             }
             if (dbIds.Length > 0)
                 OrionBackend.DeleteTabs(dbIds);
@@ -1147,15 +1120,7 @@ namespace Orion
                 if (existingIds.Contains(t.Id))
                     continue;
 
-                var tab = new BrowserTab
-                {
-                    Id = t.Id,
-                    Title = t.Name,
-                    Url = t.Uri.Length > 0 ? t.Uri : "about:blank",
-                    IsPinned = t.IsPinned,
-                    GroupId = group.Id,
-                    IsHibernated = true,
-                };
+                BrowserTab tab = RestoreTab(t, group.Id);
 
                 // Insert at correct position based on DB ordering
                 int dbIndex = dbTabs.FindIndex(dt => dt.Id == t.Id);
@@ -1202,7 +1167,7 @@ namespace Orion
 
             HashSet<long> dbIds = [.. OrionBackend.GetTabs(group.Id).Select(t => t.Id)];
             BrowserTab[] toRemove = [.. group.FlattenedTabs
-                .Where(t => t.Id != 0 && !dbIds.Contains(t.Id))];
+                .Where(t => t.Id != 0 && t.Pin?.Scope != TabPinScope.Profile && !dbIds.Contains(t.Id))];
 
             foreach (BrowserTab tab in toRemove)
             {
@@ -1246,22 +1211,32 @@ namespace Orion
         /// <param name="targetGroup">The target group.</param>
         public void MoveTabToGroup(BrowserTab tab, TabGroup targetGroup)
         {
-            if (ActiveGroup == null || tab.GroupId == targetGroup.Id)
+            if (ActiveGroup == null || tab.GroupId == targetGroup.Id || tab.Pin?.Scope == TabPinScope.Profile
+                || (tab.IsPinned && (!targetGroup.IsSaved || targetGroup.IsPrivate)))
                 return;
 
             TabGroup group = ActiveGroup.Model;
+            if (tab.Pin is { Scope: TabPinScope.Workspace } pin
+                && !OrionBackend.SaveTabPinState(tab.Id, targetGroup.Id, updatePin: true,
+                    isPinned: true, moveToWindow: true, pin.Url, pin.Title))
+            {
+                return;
+            }
+            DetachPinFromFolder(group, tab);
 
             // RemoveTab handles setting a new ActiveTab
-            group.RemoveTab(tab);
+            ActiveGroup.RemoveTab(tab, returnToLastActive: true);
 
             if (group.Tabs.Count == 0)
                 _ = CreateNewTab();
 
             tab.GroupId = targetGroup.Id;
             targetGroup.AddTab(tab);
+            if (tab.IsPinned)
+                targetGroup.PositionChangedPin(tab);
 
             // Persist the move
-            if (tab.Id != 0)
+            if (tab.Id != 0 && !tab.IsPinned)
                 OrionBackend.MoveTab(tab.Id, targetGroup.Id);
         }
 
@@ -1322,7 +1297,11 @@ namespace Orion
                 _ = SharedSavedGroupsForProfile.Remove(shared);
             // Flip to is_tab_group=true so close_window() deletes rather than preserves
             if (group.IsSaved)
+            {
+                if (group.PinFolders.Count > 0)
+                    _ = WritePinFolders(group, []);
                 OrionBackend.UpdateTabGroupIsTabGroup(group.Id, true);
+            }
             OrionBackend.DeleteTabGroup(group.Id);
             return true;
         }
@@ -1342,6 +1321,7 @@ namespace Orion
             {
                 foreach (TabGroupViewModel vm in e.NewItems)
                 {
+                    ProjectSharedPins(vm.Model);
                     vm.Model.PropertyChanged += OnAnyGroupIsSavedChanged;
                     if (vm.Model.IsSaved)
                     {
@@ -1389,11 +1369,10 @@ namespace Orion
                     OrionBackend.UpdateTabGroupSelectedTab(vm.Model.Id, tab.Id);
             }
 
-            if (e.PropertyName == nameof(TabGroupViewModel.DisplayName))
-            {
+            if (e.PropertyName == nameof(TabGroupViewModel.WorkspaceName))
                 OnPropertyChanged(nameof(ActiveGroupName));
+            else if (e.PropertyName == nameof(TabGroupViewModel.DisplayName))
                 OnPropertyChanged(nameof(SidebarHeaderText));
-            }
         }
 
         internal string GetSearchUrlTemplate() => GetSearchEngine().UrlTemplate;
@@ -1465,7 +1444,8 @@ namespace Orion
             TabGroups.Clear();
             ActiveGroup = null;
             UnsavedTabGroup = null;
-            ResetSharedState();
+            _sharedSavedGroupsByProfile.Clear();
+            _sharedPins.Reload(resolveWindow: true);
 
             var groups = OrionBackend.GetTabGroups(_profileId)
                 .Where(g => g.HasUiWindow).ToList();

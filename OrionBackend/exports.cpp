@@ -27,10 +27,12 @@
 #include "core/webextensions/web_view.h"
 #include "common/src/run_loop.h"
 #include "common/src/log.h"
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <map>
 #include <memory>
+#include <optional>
 #include <cstdlib>
 #include <string>
 #include <cstdio>
@@ -218,6 +220,17 @@ extern "C" __declspec(dllexport) int64_t GetCurrentProfileId()
     return g_profile_id;
 }
 
+extern "C" __declspec(dllexport) bool ConfigurePrivateSession()
+{
+    return orion::CommonDb::instance().use_in_memory_storage();
+}
+
+static int64_t createDefaultRegistryProfile(orion::CommonDb& common)
+{
+    return common.is_in_memory() ? common.create_profile("Private", "", "blink")
+                                 : common.create_profile("Default", "", DefaultBrowserEngine);
+}
+
 // Resolves which profile this process should host, running the legacy DB
 // split / registry seeding if needed so the answer is authoritative on the
 // very first launch too. requested_id 0 = the default profile. Returns the
@@ -229,8 +242,7 @@ extern "C" __declspec(dllexport) int64_t ResolveStartupProfile(int64_t requested
     orion::CommonDb& common = orion::CommonDb::instance();
     if (!common.open() || !common.migrate_legacy_if_needed())
         return 0;
-    if (common.get_profiles().empty()
-        && common.create_profile("Default", "", DefaultBrowserEngine) == 0)
+    if (common.get_profiles().empty() && createDefaultRegistryProfile(common) == 0)
         return 0;
     if (requested_id != 0)
         return common.get_profile(requested_id) ? requested_id : 0;
@@ -259,8 +271,7 @@ extern "C" __declspec(dllexport) const char* InitOrionCore(int64_t profile_id)
         return ReturnString("Error: splitting the legacy profile database failed — see log");
 
     // Fresh install: seed the registry with a default profile.
-    if (common.get_profiles().empty()
-        && common.create_profile("Default", "", DefaultBrowserEngine) == 0)
+    if (common.get_profiles().empty() && createDefaultRegistryProfile(common) == 0)
         return ReturnString("Error: cannot create the default profile");
 
     std::optional<orion::RegistryProfile> profile = profile_id != 0
@@ -270,10 +281,14 @@ extern "C" __declspec(dllexport) const char* InitOrionCore(int64_t profile_id)
         return ReturnString("Error: profile " + std::to_string(profile_id) + " does not exist");
     g_profile_id = profile->id;
 
-    const std::filesystem::path db_path = orion::CommonDb::profile_db_path(profile->id);
-    std::error_code ec;
-    std::filesystem::create_directories(db_path.parent_path(), ec);
-    const bool fresh_profile_db = !std::filesystem::exists(db_path);
+    const bool private_session = common.is_in_memory();
+    const std::filesystem::path db_path = private_session ? std::filesystem::path(":memory:")
+        : orion::CommonDb::profile_db_path(profile->id);
+    if (!private_session) {
+        std::error_code ec;
+        std::filesystem::create_directories(db_path.parent_path(), ec);
+    }
+    const bool fresh_profile_db = private_session || !std::filesystem::exists(db_path);
 
     g_core_api = orion::CoreApi::create("com.kagi.orion");
 #ifdef ORION_TEST_EXTENSIONS
@@ -282,8 +297,10 @@ extern "C" __declspec(dllexport) const char* InitOrionCore(int64_t profile_id)
     // "debug" manifest permission can be granted. Must precede init().
     g_core_api->set_debug_mode(true);
 #endif
-    g_core_api->set_password_storage(&g_dpapi_password_storage);
-    g_core_api->set_notification_provider(&g_host_notification_provider);
+    if (!private_session) {
+        g_core_api->set_password_storage(&g_dpapi_password_storage);
+        g_core_api->set_notification_provider(&g_host_notification_provider);
+    }
     orion::Error err = g_core_api->init(db_path.string());
     if (err) return ReturnString("Error: " + err.message());
 
@@ -299,7 +316,7 @@ extern "C" __declspec(dllexport) const char* InitOrionCore(int64_t profile_id)
     // create_profile allocates exactly profile->id along with all its default
     // rows (bookmark folders, shared-pinned-tabs window, settings, toolbar).
     if (fresh_profile_db) {
-        if (!orion::CommonDb::preseed_profile_rowid(db_path, profile->id))
+        if (!private_session && !orion::CommonDb::preseed_profile_rowid(db_path, profile->id))
             return ReturnString("Error: cannot provision the profile database");
         orion::CreateProfileQuery q;
         q.name = profile->name;
@@ -312,7 +329,8 @@ extern "C" __declspec(dllexport) const char* InitOrionCore(int64_t profile_id)
             done = true;
         });
         while (!done) orion::tls_run_loop()->pump();
-        orion::CommonDb::remove_preseed_row(db_path, profile->id);
+        if (!private_session)
+            orion::CommonDb::remove_preseed_row(db_path, profile->id);
         if (created_id != profile->id) {
             orion::log_error("InitOrionCore: provisioned id %lld != registry id %lld",
                 (long long)created_id, (long long)profile->id);
@@ -401,7 +419,7 @@ extern "C" __declspec(dllexport) void ShutdownOrionCore()
 
 extern "C" __declspec(dllexport) void AddHistoryEntry(int64_t profile_id, const char* url, const char* title)
 {
-    if (!g_core_api || profile_id == 0) return;
+    if (!g_core_api || profile_id == 0 || orion::CommonDb::instance().is_in_memory()) return;
     orion::CreateHistoryEntryQuery q;
     q.profile_id = orion::ProfileId(profile_id);
     q.address    = url;
@@ -1896,6 +1914,7 @@ extern "C" __declspec(dllexport) int64_t CreateOrionWindowEntry(
     q.profile_id    = orion::ProfileId(profile_id);
     q.is_tab_group  = is_tab_group != 0;
     q.has_ui_window = has_ui_window != 0;
+    q.is_private    = orion::CommonDb::instance().is_in_memory();
 
     int64_t result = 0;
     bool done = false;
@@ -1988,21 +2007,31 @@ extern "C" __declspec(dllexport) void CloseOrionWindowEntry(int64_t window_id)
 // Tabs
 // -----------------------------------------------------------------------
 
-extern "C" __declspec(dllexport) TabNative* GetTabs(int64_t window_id, int* outCount)
+static bool loadWindowTabs(int64_t window_id, std::vector<orion::TabDto>& tabs)
 {
-    *outCount = 0;
     if (!g_core_api || window_id == 0)
-        return nullptr;
+        return false;
 
-    std::vector<orion::TabDto> tabs;
+    bool success = false;
     bool done = false;
     orion::GetTabIdsQuery q;
     q.window_id = orion::WindowId(window_id);
     g_core_api->get_tabs_by_query(q, [&](orion::GetTabsReply reply) {
-        tabs = reply.err ? std::vector<orion::TabDto>{} : reply.tabs;
+        success = !reply.err;
+        if (success)
+            tabs = std::move(reply.tabs);
         done = true;
     });
     while (!done) orion::tls_run_loop()->pump();
+    return success;
+}
+
+extern "C" __declspec(dllexport) TabNative* GetTabs(int64_t window_id, int* outCount)
+{
+    *outCount = 0;
+    std::vector<orion::TabDto> tabs;
+    if (!loadWindowTabs(window_id, tabs))
+        return nullptr;
 
     int count = (int)tabs.size();
     if (count == 0) return nullptr;
@@ -2100,15 +2129,84 @@ extern "C" __declspec(dllexport) int64_t GetSharedPinnedTabsWindowId(int64_t pro
     return window_id.value;
 }
 
-extern "C" __declspec(dllexport) void UpdateTabPinned(int64_t tab_id, int64_t window_id, int8_t is_pinned)
+static bool updateTabChecked(const orion::UpdateTabQuery& query)
 {
-    if (!g_core_api || tab_id == 0 || window_id == 0) return;
+    bool success = false;
+    bool done = false;
+    g_core_api->update_tab(query, [&](orion::Error err) {
+        success = !err;
+        if (err)
+            orion::log_error("UpdateTab: %s", err.message().c_str());
+        done = true;
+    });
+    while (!done) orion::tls_run_loop()->pump();
+    return success;
+}
+
+// The generic move API's pinned placement requires a preceding pinned tab.
+// For a first pin or a pin moved to the front, use the core's seq_num update.
+static bool setPinPosition(orion::UpdateTabQuery& query, orion::TabId before_id, bool require_existing)
+{
+    std::vector<orion::TabDto> tabs;
+    if (!loadWindowTabs(query.window_id.value, tabs))
+        return false;
+
+    if (require_existing && !std::any_of(tabs.begin(), tabs.end(), [&](const orion::TabDto& t) {
+            return t.id == query.id && t.is_pinned;
+        }))
+        return false;
+
+    std::optional<double> previous;
+    for (const auto& tab : tabs) {
+        if (tab.id == query.id)
+            continue;
+        if (tab.id == before_id || (before_id.value == 0 && !tab.is_pinned)) {
+            query.seq_num = previous ? (*previous + tab.seq_num) / 2.0 : tab.seq_num - 1.0;
+            query.update_seq_num = true;
+            return true;
+        }
+        previous = tab.seq_num;
+    }
+    if (before_id.value != 0)
+        return false;
+
+    query.seq_num = previous.value_or(-1.0) + 1.0;
+    query.update_seq_num = true;
+    return true;
+}
+
+extern "C" __declspec(dllexport) int8_t SaveTabPinState(
+    int64_t tab_id, int64_t window_id, int8_t update_pin, int8_t is_pinned,
+    int8_t move_to_window, const char* uri, const char* name)
+{
+    if (!g_core_api || tab_id == 0 || window_id == 0) return 0;
     orion::UpdateTabQuery q;
     q.id               = orion::TabId(tab_id);
     q.window_id        = orion::WindowId(window_id);
     q.is_pinned        = is_pinned != 0;
-    q.update_is_pinned = true;
-    g_core_api->update_tab(q, [](orion::Error) {});
+    q.update_is_pinned = update_pin != 0;
+    q.update_window_id = move_to_window != 0;
+    q.uri              = uri ? uri : "";
+    q.update_uri       = true;
+    q.name             = name ? name : "";
+    q.update_name      = true;
+
+    if (q.is_pinned && q.update_window_id) {
+        if (!setPinPosition(q, orion::TabId(0), false))
+            return 0;
+        q.move_children_to_parent = true;
+    }
+    return updateTabChecked(q) ? 1 : 0;
+}
+
+extern "C" __declspec(dllexport) int8_t ReorderPinnedTab(
+    int64_t tab_id, int64_t window_id, int64_t before_tab_id)
+{
+    if (!g_core_api || tab_id == 0 || window_id == 0) return 0;
+    orion::UpdateTabQuery q;
+    q.id = orion::TabId(tab_id);
+    q.window_id = orion::WindowId(window_id);
+    return setPinPosition(q, orion::TabId(before_tab_id), true) && updateTabChecked(q) ? 1 : 0;
 }
 
 extern "C" __declspec(dllexport) void UpdateTabWindowId(int64_t tab_id, int64_t window_id)
@@ -2466,6 +2564,11 @@ void RedirectStdStreamsToDebugOutput()
 
 extern "C" __declspec(dllexport) void SetupLogging()
 {
+    if (orion::CommonDb::instance().is_in_memory()) {
+        orion::set_log_sink([](const char*) {});
+        return;
+    }
+
 #ifdef _DEBUG
     RedirectStdStreamsToDebugOutput();
 #endif

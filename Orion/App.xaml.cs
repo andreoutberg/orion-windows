@@ -54,21 +54,23 @@ namespace Orion
 #endif
 
         /// <summary>
-        /// Loads the profile's engine (--engine= arg overrides); false means
-        /// the error dialog is up and the app will exit when it's dismissed.
-        /// No fallback to the other engine: profile data is per-engine, so a
-        /// silent switch presents as data loss. Unknown values normalize to
-        /// the default engine — they can only come from a hand-edited
-        /// registry.
+        /// Both the launcher and the window use the same engine selection.
+        /// An explicit --engine argument overrides the profile registry.
         /// </summary>
-        private bool TryLoadBrowserEngine(Profile profile, string? engineArg)
+        internal static string RequestedEngine(Profile? profile, string[] args)
         {
-            string requested = (engineArg ?? profile.Engine).Trim().ToLowerInvariant();
+            string? engineArg = args.FirstOrDefault(a => a.StartsWith("--engine=", StringComparison.Ordinal))?["--engine=".Length..];
+            string requested = (engineArg ?? profile?.Engine ?? DefaultBrowserEngine).Trim().ToLowerInvariant();
             if (requested is not "webkit" and not "blink")
             {
                 OrionBackend.LogWarning($"Unknown browser engine '{requested}' — using '{DefaultBrowserEngine}'");
                 requested = DefaultBrowserEngine;
             }
+            return requested;
+        }
+
+        private bool TryLoadBrowserEngine(string requested)
+        {
             if (!SupportsWebKit && requested == "webkit")
             {
                 ShowFatalStartupErrorAndExit("WebKit is unavailable",
@@ -144,13 +146,12 @@ namespace Orion
             // --engine=webkit|blink overrides. The plugin must be loaded
             // before the watcher thread reads GetCefWakeupEventHandle and
             // before the first window.
-            string? engineArg = Environment.GetCommandLineArgs()
-                .FirstOrDefault(a => a.StartsWith("--engine=", StringComparison.Ordinal))?["--engine=".Length..];
-            if (!TryLoadBrowserEngine(currentProfile, engineArg))
+            if (!TryLoadBrowserEngine(RequestedEngine(currentProfile, Environment.GetCommandLineArgs())))
                 return;
 
             OrionBackend.SetupDownloadCallbacks();
-            NotificationService.Initialize(DispatcherQueue.GetForCurrentThread(), currentProfile.Id);
+            if (!PrivateBrowsing.IsActive)
+                NotificationService.Initialize(DispatcherQueue.GetForCurrentThread(), currentProfile.Id);
             ErrorPageProvider.Initialize();
             ThemeService.Initialize(currentProfile.Id);
             EnginePreferences.Initialize(currentProfile.Id);
@@ -244,13 +245,10 @@ namespace Orion
             // gets its own process; a duplicate spawn is a no-op thanks to the
             // per-profile single-instance gate. Spawned after our window is up
             // so the focused profile wins the foreground.
-            if (Environment.ProcessPath is string exePath)
+            foreach (long id in ReopenProfileIds)
             {
-                foreach (long id in ReopenProfileIds)
-                {
-                    if (id != currentProfile.Id)
-                        _ = System.Diagnostics.Process.Start(exePath, $"--profile={id}");
-                }
+                if (id != currentProfile.Id)
+                    _ = System.Diagnostics.Process.Start(Program.LauncherPath, $"--profile={id}");
             }
 
             // Serve "open" requests forwarded by later launches of this
@@ -270,7 +268,7 @@ namespace Orion
                 () => OnProfileDeleted(currentProfile.Id),
                 OnProfilesChangedByOtherProcess,
                 MainWindow.ExitAll,
-                NotificationService.HandleForwardedActivation);
+                PrivateBrowsing.IsActive ? null : NotificationService.HandleForwardedActivation);
 
             // Remove leftover data dirs of deleted profiles (their rows mark
             // the ids as permanently burned; a dir survives deletion when its
@@ -278,7 +276,8 @@ namespace Orion
             ProfileDataCleanup.Run();
 
             // Launched by a click on one of our toasts while not running?
-            NotificationService.HandleLaunchActivation();
+            if (!PrivateBrowsing.IsActive)
+                NotificationService.HandleLaunchActivation();
         }
 
         /// <summary>

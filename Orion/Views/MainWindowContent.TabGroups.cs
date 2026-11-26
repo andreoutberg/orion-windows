@@ -17,20 +17,6 @@ namespace Orion
         private void InitializeTabGroupContextMenus() => SidebarTabGroupsPanel.ContextFlyoutFactory =
                 group => CreateTabGroupContextMenu(group, g => _ = ShowEditGroupDialog(g));
 
-        private void GroupHeader_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button button && button.Tag is TabGroupViewModel vm)
-                ViewModel.SelectTabGroup(vm.Model);
-        }
-
-        private void NewTabGroup_Click(object sender, RoutedEventArgs e) => _ = ViewModel.CreateTabGroup();
-
-        private void TabGroupButton_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button button && button.Tag is TabGroupViewModel vm)
-                button.ContextFlyout = CreateTabGroupContextMenu(vm.Model, g => _ = ShowEditGroupDialog(g));
-        }
-
         private MenuFlyout CreateTabGroupContextMenu(TabGroup group, Action<TabGroup> onEdit)
         {
             var flyout = new MenuFlyout();
@@ -128,7 +114,7 @@ namespace Orion
 
             var dialog = new PopupDialog
             {
-                Title = group.IsSaved ? "Edit Tab Group" : "Name Tab Group",
+                Title = group.IsSaved ? "Rename Workspace" : "Name Workspace",
                 DialogContent = panel,
                 PrimaryButtonText = "Save",
                 CloseButtonText = "Cancel",
@@ -175,20 +161,26 @@ namespace Orion
 
         // --- Tab Group Switcher Popover ---
 
-        private void TabGroupSwitcherButton_Click(object sender, RoutedEventArgs e)
+        private void TabGroupSwitcherButton_Click(object sender, RoutedEventArgs e) =>
+            ShowTabGroupSwitcher(TabGroupSwitcherButton);
+
+        private void ShowTabGroupSwitcher(FrameworkElement anchor)
         {
             if (!_switcherEventsWired)
             {
-                TabGroupSwitcher.SetDataSource(ViewModel.UnsavedTabGroup, ViewModel.SavedTabGroups);
                 TabGroupSwitcher.ContextFlyoutFactory =
                     group => CreateTabGroupContextMenu(group, g => _ = ShowEditGroupDialog(g));
+                TabGroupSwitcher.SavedTabGroups = ViewModel.SavedTabGroups;
                 TabGroupSwitcher.GroupSelected += OnSwitcherGroupSelected;
                 TabGroupSwitcher.NewGroupRequested += OnSwitcherNewGroup;
                 TabGroupSwitcher.GroupRenamed += OnSwitcherGroupRenamed;
+                TabGroupSwitcher.GroupsReordered += SidebarGroupsReordered;
+                TabGroupSwitcher.TabLayoutChanged += OnWorkspaceTabLayoutChanged;
                 _switcherEventsWired = true;
             }
 
-            TabGroupSwitcher.ShowBelow(TabGroupSwitcherButton, ViewModel.UnsavedTabGroup, ViewModel.ActiveGroup?.Model);
+            TabGroupSwitcher.ShowBelow(anchor, ViewModel.UnsavedTabGroup, ViewModel.ActiveGroup?.Model,
+                ViewModel.TabLayout, _chromeMotionSettings.AnimationsEnabled);
         }
 
         private void OnSwitcherGroupSelected(object? sender, TabGroup group)
@@ -197,7 +189,11 @@ namespace Orion
             TabGroupSwitcher.Close();
         }
 
-        private void OnSwitcherNewGroup(object? sender, EventArgs e) => _ = ViewModel.CreateTabGroup();
+        private void OnSwitcherNewGroup(object? sender, EventArgs e)
+        {
+            TabGroupSwitcher.Close();
+            _ = ViewModel.CreateTabGroup();
+        }
 
         private void OnSwitcherGroupRenamed(object? sender, GroupRenamedEventArgs args) => ApplyGroupRename(args.Group, args.NewName);
 

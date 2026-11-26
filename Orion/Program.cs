@@ -7,16 +7,36 @@ namespace Orion
 {
     public static class Program
     {
+        internal static string LauncherPath => System.IO.Path.Combine(System.AppContext.BaseDirectory, "Orion.exe");
+
+        private static void StartBroker(string path, string[] args)
+        {
+            var start = new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = false };
+            foreach (string argument in args)
+                start.ArgumentList.Add(argument);
+            using var process = System.Diagnostics.Process.Start(start);
+        }
+
         public static void Main(string[] args)
         {
+            // Chromium's sandbox requires its broker and children to use the
+            // same CEF bootstrap image. Blink-only and private launches can
+            // delegate immediately, before touching profile storage.
+            string broker = System.IO.Path.Combine(System.AppContext.BaseDirectory,
+                "engines", "blink", "OrionEngineB.exe");
+            bool isBroker = string.Equals(System.Environment.ProcessPath, broker,
+                System.StringComparison.OrdinalIgnoreCase);
+            if (!isBroker && (!App.SupportsWebKit || System.Environment.GetEnvironmentVariable("ORION_PRIVATE_SESSION") == "1"))
+            {
+                StartBroker(broker, args);
+                return;
+            }
+
             WinRT.ComWrappersSupport.InitializeComWrappers();
 
-            // CEF re-launches the exe for renderer/GPU/utility subprocesses.
-            // Detect this early and exit before WinUI startup.
             OrionBackend.Initialize();
-            int subprocessExitCode = OrionBackend.CheckBrowserSubprocess();
-            if (subprocessExitCode >= 0)
-                return;
+
+            PrivateBrowsing.Initialize();
 
             // One profile per process: resolve which profile this process
             // hosts (running the first-launch registry migration if needed),
@@ -36,6 +56,7 @@ namespace Orion
             // by App.OnLaunched. The list is written by the quit path and
             // consumed here exactly once, so profiles closed individually
             // later don't come back.
+            bool consumeReopenList = false;
             if (requestedProfile == 0)
             {
                 // Opens/migrates the registry DB so GetAppSetting works.
@@ -44,7 +65,7 @@ namespace Orion
                     "settings::general::reopen_profiles", "");
                 if (reopenCsv.Length > 0)
                 {
-                    OrionBackend.SetAppSetting("settings::general::reopen_profiles", "");
+                    consumeReopenList = true;
                     foreach (string part in reopenCsv.Split(','))
                     {
                         // Skip ids whose profile no longer exists.
@@ -64,12 +85,18 @@ namespace Orion
             long profileId = OrionBackend.ResolveStartupProfile(requestedProfile);
             if (profileId == 0)
                 profileId = requestedProfile;  // InitOrionCore will surface the error
+            if (!isBroker && App.RequestedEngine(
+                OrionBackend.GetProfiles().Find(profile => profile.Id == profileId), args) == "blink")
+            {
+                StartBroker(broker, args);
+                return;
+            }
+            if (consumeReopenList)
+                OrionBackend.SetAppSetting("settings::general::reopen_profiles", "");
             App.StartupProfileId = profileId;
             if (!SingleInstance.TryAcquire(profileId))
                 return;
 
-            // [STAThread] can't be used — it inits COM as STA before Main,
-            // conflicting with CEF GPU subprocess which needs MTA.
             System.Threading.Thread.CurrentThread.SetApartmentState(System.Threading.ApartmentState.Unknown);
             System.Threading.Thread.CurrentThread.SetApartmentState(System.Threading.ApartmentState.STA);
 

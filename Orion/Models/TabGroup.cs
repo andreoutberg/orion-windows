@@ -18,13 +18,32 @@ namespace Orion
         [ObservableProperty]
         public partial long Id { get; set; }
 
+        internal bool IsPrivate { get; init; }
+
+        internal HashSet<long> DismissedSharedPins { get; } = [];
+
+        internal IReadOnlyList<WorkspacePinFolder> PinFolders { get; private set; } = [];
+
+        internal event Action<bool>? PinFoldersChanged;
+
+        internal void ApplyPinFolders(IReadOnlyList<WorkspacePinFolder> folders, bool structureChanged)
+        {
+            PinFolders = folders;
+            var folderedPins = new HashSet<long>(folders.SelectMany(folder => folder.TabIds));
+            foreach (BrowserTab tab in Tabs)
+                tab.IsInPinFolder = tab.Pin?.Scope == TabPinScope.Workspace && folderedPins.Contains(tab.Id);
+            PinFoldersChanged?.Invoke(structureChanged);
+        }
+
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(DisplayName))]
+        [NotifyPropertyChangedFor(nameof(DisplayName), nameof(WorkspaceName))]
         public partial string Name { get; set; } = string.Empty;
 
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(DisplayName))]
+        [NotifyPropertyChangedFor(nameof(DisplayName), nameof(WorkspaceName))]
         public partial bool IsSaved { get; set; }
+
+        public string WorkspaceName => IsSaved && !string.IsNullOrWhiteSpace(Name) ? Name : "This Window";
 
         [ObservableProperty]
         public partial int Order { get; set; }
@@ -236,19 +255,31 @@ namespace Orion
                 }
             }
 
-            // Bubble pinned tabs to the top
-            int pinnedInsertIndex = 0;
-            for (int i = 0; i < Tabs.Count; i++)
+            // Keep the profile pin section before the workspace pin section.
+            BrowserTab[] pins = Tabs.Where(t => t.IsPinned)
+                .OrderByDescending(t => t.Pin?.Scope == TabPinScope.Profile).ToArray();
+            for (int i = 0; i < pins.Length; i++)
             {
-                if (Tabs[i].IsPinned && i != pinnedInsertIndex)
-                {
-                    BrowserTab tab = Tabs[i];
-                    Tabs.RemoveAt(i);
-                    Tabs.Insert(pinnedInsertIndex, tab);
-                }
-                if (pinnedInsertIndex < Tabs.Count && Tabs[pinnedInsertIndex].IsPinned)
-                    pinnedInsertIndex++;
+                int previousIndex = Tabs.IndexOf(pins[i]);
+                if (previousIndex != i)
+                    Tabs.Move(previousIndex, i);
             }
+        }
+
+        internal void PositionChangedPin(BrowserTab tab)
+        {
+            ObservableCollection<BrowserTab> previous = FindContainingCollection(tab);
+            int previousIndex = previous.IndexOf(tab);
+            previous.RemoveAt(previousIndex);
+            foreach (BrowserTab child in tab.Children)
+                previous.Insert(previousIndex++, child);
+            tab.Children.Clear();
+
+            int insertAt = tab.Pin?.Scope == TabPinScope.Profile
+                ? Tabs.TakeWhile(t => t.Pin?.Scope == TabPinScope.Profile).Count()
+                : Tabs.TakeWhile(t => t.IsPinned).Count();
+            Tabs.Insert(insertAt, tab);
+            NotifyTreeChanged();
         }
 
         public bool TabExists(BrowserTab tab)

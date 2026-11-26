@@ -45,7 +45,13 @@ namespace Orion
         public static int GetIntSetting(long profileId, string key, string realm, string keyName, int defaultValue) =>
             IntSettingOverrides.Value != null && IntSettingOverrides.Value.TryGetValue(key, out int v) ? v : defaultValue;
 
-        public static string GetStringSetting(long profileId, string key, string realm, string keyName, string defaultValue) => defaultValue;
+        private static readonly Dictionary<(long ProfileId, string Key), string> _stringSettings = [];
+
+        public static string GetStringSetting(long profileId, string key, string realm, string keyName, string defaultValue) =>
+            _stringSettings.GetValueOrDefault((profileId, key), defaultValue);
+
+        public static void SetStringSetting(long profileId, string key, string realm, string keyName, string value, string defaultValue) =>
+            _stringSettings[(profileId, key)] = value;
 
         public static void LogDebug(string message) => Console.WriteLine($"[DEBUG] {message}");
 
@@ -68,13 +74,15 @@ namespace Orion
 
         public static long GetCurrentProfileId() => 0;
 
+        public static bool IsPrivateSession => false;
+
         public static string GetAppSetting(string key, string defaultValue) => defaultValue;
 
         public static void SetAppSetting(string key, string value, string type = "text") { }
 
         // ---- Tab Groups ----
 
-        public static long GetSharedPinnedTabsWindowId(long profileId) => 0;
+        public static long GetSharedPinnedTabsWindowId(long profileId) => -profileId;
 
         public static long CreateTabGroupEntry(long profileId, bool isTabGroup, bool hasUiWindow) => Interlocked.Increment(ref _nextId);
 
@@ -103,7 +111,22 @@ namespace Orion
         public static void MoveTab(long tabId, long targetWindowId, long parentTabId = 0,
             long afterTabId = 0, bool isNested = false)
         { }
-        public static void UpdateTabPinned(long tabId, long windowId, bool isPinned) { }
+        public static bool SaveTabPinState(long tabId, long windowId, bool updatePin,
+            bool isPinned, bool moveToWindow, string uri, string name)
+        {
+            if (!_tabStore.TryGetValue(tabId, out PersistedTab? tab))
+                return false;
+            bool move = moveToWindow || (updatePin && !isPinned && tab.TabGroupId < 0);
+            _tabStore[tabId] = tab with
+            {
+                TabGroupId = move ? windowId : tab.TabGroupId,
+                IsPinned = updatePin ? isPinned : tab.IsPinned,
+                Uri = uri,
+                Name = name,
+            };
+            return true;
+        }
+        public static bool ReorderPinnedTab(long tabId, long windowId, long beforeTabId) => true;
         public static void DeleteTabs(long[] ids)
         {
             foreach (long id in ids)
@@ -179,6 +202,7 @@ namespace Orion
         {
             _nextId = 1;
             _tabStore.Clear();
+            _stringSettings.Clear();
             _undoStack.Clear();
             _undoPosition = 0;
         }

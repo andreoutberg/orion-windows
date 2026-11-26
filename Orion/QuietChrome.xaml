@@ -1,27 +1,53 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="OrionChromeBackdropBrush" Color="Transparent" />
             <SolidColorBrush x:Key="OrionChromeSurfaceBrush" Color="#FFF9F8F7" />
-            <SolidColorBrush x:Key="OrionChromeWellBrush" Color="#FFF0EEEF" />
+            <SolidColorBrush x:Key="OrionChromeWellBrush" Color="#E6F4F1F5" />
             <SolidColorBrush x:Key="OrionChromeLineBrush" Color="#FFE6E2E5" />
             <SolidColorBrush x:Key="OrionChromeSelectionBrush" Color="#FFECE8F3" />
-            <SolidColorBrush x:Key="OrionChromeAccentBrush" Color="#FF7253B4" />
+            <Color x:Key="OrionRailSelectionColor">#10252534</Color>
+            <Color x:Key="OrionChromeAccentColor">#FF7253B4</Color>
+            <StaticResource x:Key="OrionChromePointerSelectionColor" ResourceKey="OrionChromeAccentColor" />
+            <StaticResource x:Key="OrionChromeFoldedSelectionColor" ResourceKey="OrionChromeAccentColor" />
+            <SolidColorBrush x:Key="OrionChromeAccentBrush" Color="{StaticResource OrionChromeAccentColor}" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Default">
+            <SolidColorBrush x:Key="OrionChromeBackdropBrush" Color="Transparent" />
             <SolidColorBrush x:Key="OrionChromeSurfaceBrush" Color="#FF201E23" />
-            <SolidColorBrush x:Key="OrionChromeWellBrush" Color="#FF2B2830" />
+            <SolidColorBrush x:Key="OrionChromeWellBrush" Color="#E62A2730" />
             <SolidColorBrush x:Key="OrionChromeLineBrush" Color="#FF37333D" />
             <SolidColorBrush x:Key="OrionChromeSelectionBrush" Color="#FF393042" />
-            <SolidColorBrush x:Key="OrionChromeAccentBrush" Color="#FFC0A6F5" />
+            <Color x:Key="OrionRailSelectionColor">#1AE1D6F4</Color>
+            <Color x:Key="OrionChromeAccentColor">#FFC0A6F5</Color>
+            <StaticResource x:Key="OrionChromePointerSelectionColor" ResourceKey="OrionChromeAccentColor" />
+            <StaticResource x:Key="OrionChromeFoldedSelectionColor" ResourceKey="OrionChromeAccentColor" />
+            <SolidColorBrush x:Key="OrionChromeAccentBrush" Color="{StaticResource OrionChromeAccentColor}" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
+            <SolidColorBrush x:Key="OrionChromeBackdropBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="OrionChromeSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="OrionChromeWellBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="OrionChromeLineBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
             <SolidColorBrush x:Key="OrionChromeSelectionBrush" Color="{ThemeResource SystemColorWindowColor}" />
-            <SolidColorBrush x:Key="OrionChromeAccentBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <StaticResource x:Key="OrionRailSelectionColor" ResourceKey="SystemColorWindowColor" />
+            <StaticResource x:Key="OrionChromeAccentColor" ResourceKey="SystemColorHighlightColor" />
+            <StaticResource x:Key="OrionChromePointerSelectionColor" ResourceKey="SystemColorButtonTextColor" />
+            <StaticResource x:Key="OrionChromeFoldedSelectionColor" ResourceKey="SystemColorHighlightTextColor" />
+            <SolidColorBrush x:Key="OrionChromeAccentBrush" Color="{ThemeResource OrionChromeAccentColor}" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
+
+    <DataTemplate x:Key="SearchPlusMarkTemplate">
+        <Viewbox Stretch="Uniform">
+            <Path
+                Data="M 13,8 A 5.5,5.5 0 1 1 2,8 A 5.5,5.5 0 1 1 13,8 M 11.5,12 L 16.5,17 M 17,1 L 17,7 M 14,4 L 20,4"
+                Stroke="{ThemeResource OrionChromeAccentBrush}"
+                StrokeEndLineCap="Round"
+                StrokeStartLineCap="Round"
+                StrokeThickness="1.65" />
+        </Viewbox>
+    </DataTemplate>
 
     <Style
         x:Key="OrionChromeButtonStyle"

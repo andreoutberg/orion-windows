@@ -1,0 +1,7 @@
+<Project>
+  <!-- nethost's stable Windows ABI resolves app-local and shared .NET runtimes. -->
+  <PropertyGroup>
+    <NetHostPackRoot Condition="'$(NetHostPackRoot)' == ''">$(ProgramW6432)\dotnet\packs\Microsoft.NETCore.App.Host.win-x64</NetHostPackRoot>
+    <NetHostDir Condition="'$(NetHostDir)' == '' and Exists('$(NetHostPackRoot)')">$([System.IO.Directory]::GetDirectories('$(NetHostPackRoot)')[0])\runtimes\win-x64\native</NetHostDir>
+  </PropertyGroup>
+</Project>

@@ -118,10 +118,6 @@ namespace Orion
             ViewModel.ShowWebsiteTitlesInTabs = OrionBackend.GetBoolSetting(pid,
                 "settings::tabs::always_show_website_titles_in_tabs", "settings::tabs", "always_show_website_titles_in_tabs", true);
 
-            // Set up scroll viewer height constraint
-            SidebarSplitView.SizeChanged += SplitView_SizeChanged;
-            SidebarSplitView.Loaded += (s, e) => UpdateVerticalTabScrollViewerHeight();
-
             // Initialize WebKit view when content is loaded
             WebViewHost.Loaded += OnWebViewHostLoaded;
 
@@ -357,6 +353,8 @@ namespace Orion
 
             WebViewHost.HideAll();
             DevToolsPane.Hide();
+            StopPinFolderTracking();
+            ViewModel.StopTabGroupSync();
             ViewModel.DestroyAllWebViews();
         }
 

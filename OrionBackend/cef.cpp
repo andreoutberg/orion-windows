@@ -13,6 +13,8 @@
 #include "include/cef_parser.h"
 #include "include/cef_values.h"
 #include "include/cef_request_context.h"
+#include "include/cef_sandbox_win.h"
+#include "include/cef_version.h"
 #include "include/cef_devtools_message_observer.h"
 #include "include/base/cef_logging.h"
 #include "include/base/cef_callback.h"
@@ -129,9 +131,6 @@ public:
         //command_line->AppendSwitchWithValue("enable-logging", "stderr");
         //command_line->AppendSwitchWithValue("v", "1");
 
-        // Ensure sandbox is disabled for all process types (settings.no_sandbox
-        // only affects the browser process; child processes need the switch).
-        //command_line->AppendSwitch("no-sandbox");
     }
 
     // Called by CEF (from any thread) when work is available.
@@ -173,15 +172,40 @@ static cef::logging::ScopedEarlySupport::Config g_cef_log_config = {
 };
 static cef::logging::ScopedEarlySupport g_cef_early_logging(g_cef_log_config);
 
+// Owned by the CEF bootstrap for the lifetime of RunWinMain. Both the broker
+// and its children must enter CEF with their own process's sandbox services.
+static void* g_sandbox_info = nullptr;
+
 int checkBrowserSubprocess()
 {
+    if (!g_sandbox_info) return ERROR_INVALID_STATE;
     CefMainArgs main_args(GetModuleHandle(nullptr));
     if (!g_cef_app) g_cef_app = new OrionCefApp();
-    int exit_code = CefExecuteProcess(main_args, g_cef_app, nullptr);
-    return exit_code;
+    return CefExecuteProcess(main_args, g_cef_app, g_sandbox_info);
+}
+
+int runManagedBrowser();
+
+CEF_BOOTSTRAP_EXPORT int RunWinMain(HINSTANCE, LPWSTR, int, void* sandbox_info,
+                                    cef_version_info_t* version)
+{
+    if (!sandbox_info || !version || version->cef_commit_number != CEF_COMMIT_NUMBER)
+        return ERROR_REVISION_MISMATCH;
+    g_sandbox_info = sandbox_info;
+    const int code = checkBrowserSubprocess();
+    if (code >= 0) return code;
+    auto args = CefCommandLine::CreateCommandLine();
+    args->InitFromString(GetCommandLineW());
+    if (args->HasSwitch("no-sandbox") || args->HasSwitch("single-process")
+        || args->HasSwitch("disable-gpu-sandbox") || args->HasSwitch("in-process-gpu")) {
+        OutputDebugStringW(L"Orion requires Chromium's multiprocess sandbox.");
+        return ERROR_INVALID_PARAMETER;
+    }
+    return runManagedBrowser();
 }
 
 static bool g_cef_initialized = false;
+static CefRefPtr<CefRequestContext> g_request_context;
 static bool g_shutting_down = false;
 // Browsers created (OnAfterCreated) and not yet destroyed (OnBeforeClose).
 // cleanBrowserEngine() pumps until this drains to zero before CefShutdown().
@@ -648,8 +672,8 @@ public:
     {
         if (g_shutting_down) return;
         std::wstring wurl = url.ToWString();
-        orion::log_info("CEF: OnAddressChange — url='%ls' isMain=%d hasCb=%d",
-            wurl.c_str(), frame->IsMain() ? 1 : 0,
+        orion::log_debug("CEF: OnAddressChange — isMain=%d hasCb=%d",
+            frame->IsMain() ? 1 : 0,
             m_entry->callbacks.activeURLChanged ? 1 : 0);
         if (frame->IsMain() && m_entry->callbacks.activeURLChanged) {
             // Don't update the address bar with internal URLs.
@@ -854,8 +878,8 @@ public:
                        bool* /*no_javascript_access*/) override
     {
         if (g_shutting_down) return true;
-        orion::log_info("CEF: OnBeforePopup — target_url='%ls' disposition=%d isPopup=%d",
-            target_url.ToWString().c_str(), (int)target_disposition, popupFeatures.isPopup);
+        orion::log_debug("CEF: OnBeforePopup — disposition=%d isPopup=%d",
+            (int)target_disposition, popupFeatures.isPopup);
 
         // No features → open as a new standalone tab or window (no opener
         // link), honoring the disposition Blink computed from the click's
@@ -986,8 +1010,7 @@ public:
         if (!cb)
             return false;
 
-        orion::log_info("CEF: OnOpenURLFromTab — url='%ls' disposition=%d",
-            target_url.ToWString().c_str(), (int)target_disposition);
+        orion::log_debug("CEF: OnOpenURLFromTab — disposition=%d", (int)target_disposition);
         cb(m_entry->mainWindowHwnd, target_url.ToWString().c_str(), disposition);
         return true;
     }
@@ -1023,8 +1046,8 @@ public:
                 }
                 int64_t requestId = g_nextAuthRequestId++;
                 g_pendingAuthRequests[requestId] = { callback, browserId };
-                orion::log_info("CEF: auth challenge from %ls:%d (proxy=%d) — request %lld",
-                    host.c_str(), port, isProxy ? 1 : 0, (long long)requestId);
+                orion::log_debug("CEF: auth challenge (proxy=%d) — request %lld",
+                    isProxy ? 1 : 0, (long long)requestId);
                 entry->callbacks.authCredentialsRequested(
                     host.c_str(), port, isProxy ? 1 : 0, realm.c_str(), requestId);
             },
@@ -1327,29 +1350,32 @@ static void ensureCefInitialized(int64_t profileId)
 
     CefMainArgs main_args(GetModuleHandle(nullptr));
 
-    const std::wstring exeDir = moduleDir(nullptr);
+    if (!g_sandbox_info) {
+        orion::log_error("CEF: the Windows sandbox bootstrap is required");
+        return;
+    }
 
     CefSettings settings;
     settings.multi_threaded_message_loop = false;
     settings.external_message_pump = true;
     settings.no_sandbox = false;
 
-    // Verbose logging to diagnose crashes. Log file goes next to the exe.
-    settings.log_severity = LOGSEVERITY_VERBOSE;
-    std::wstring logPath = exeDir + L"\\cef_debug.log";
-    CefString(&settings.log_file) = logPath;
+    settings.command_line_args_disabled = true;
+    settings.log_severity = LOGSEVERITY_DISABLE;
 
-    // Per-profile user data dir: root_cache_path and cache_path are equal, so
-    // browsers use the default disk profile (<root>\Default) and need no
-    // per-view request context. Per-profile because CEF holds a
-    // process-singleton lock keyed on root_cache_path and Orion runs one
-    // process per profile. profileId <= 0: shared root with no cache path —
-    // fully in-memory browsing.
+    // Chromium takes its process-singleton lock under root_cache_path. A
+    // regular profile also uses that root for persistent site data. A private
+    // process has its own temporary root for Chromium bookkeeping and uses a
+    // separate, off-the-record request context for all of its views.
+    wchar_t privateFlag[2] = {};
+    const bool isPrivate = GetEnvironmentVariableW(L"ORION_PRIVATE_SESSION", privateFlag, 2) == 1
+        && privateFlag[0] == L'1';
     if (profileId > 0) {
         std::wstring root = getProfileDataPath(profileId, EngineId::Blink).wstring();
         CefString(&settings.root_cache_path) = root;
-        CefString(&settings.cache_path) = root;
-        orion::log_info("CEF: user data dir=%ls", root.c_str());
+        if (!isPrivate) {
+            CefString(&settings.cache_path) = root;
+        }
     } else {
         CefString(&settings.root_cache_path) =
             orion::data_directory_path("com.kagi.orion", {"blink"});
@@ -1368,11 +1394,19 @@ static void ensureCefInitialized(int64_t profileId)
         CefString(&settings.user_agent) = g_default_user_agent;
 
     if (!g_cef_app) g_cef_app = new OrionCefApp();
-    g_cef_initialized = CefInitialize(main_args, settings, g_cef_app, nullptr);
+    g_cef_initialized = CefInitialize(main_args, settings, g_cef_app, g_sandbox_info);
     orion::log_info("CEF: CefInitialize %s", g_cef_initialized ? "succeeded" : "FAILED");
 
     // Kick-start the message pump — process any work queued during initialization.
     if (g_cef_initialized) {
+        g_request_context = isPrivate
+            ? CefRequestContext::CreateContext(CefRequestContextSettings(), nullptr)
+            : CefRequestContext::GetGlobalContext();
+        if (isPrivate && (!g_request_context || g_request_context->IsGlobal()
+                           || !g_request_context->GetCachePath().empty())) {
+            g_request_context = nullptr;
+            orion::log_error("CEF: could not create an off-the-record request context");
+        }
         applyEnginePreferences();
         CefDoMessageLoopWork();
     }
@@ -1402,11 +1436,11 @@ void pumpCefMessageLoop()
 HWND createBrowserView(HWND parentHwnd, BrowserCallbacks callbacks, int64_t profileId, const char* initialUrl)
 {
     const char* url = (initialUrl && *initialUrl) ? initialUrl : "about:blank";
-    orion::log_info("CEF: createBrowserView — parent=%p profileId=%lld initialUrl='%s'", parentHwnd, profileId, url);
+    orion::log_debug("CEF: createBrowserView — parent=%p profileId=%lld", parentHwnd, profileId);
 
     ensureCefInitialized(profileId);
-    if (!g_cef_initialized) {
-        orion::log_error("CEF: createBrowserView — CefInitialize not done");
+    if (!g_cef_initialized || !g_request_context) {
+        orion::log_error("CEF: createBrowserView — browser context unavailable");
         return nullptr;
     }
     if (profileId != g_cef_profile_id) {
@@ -1429,7 +1463,7 @@ HWND createBrowserView(HWND parentHwnd, BrowserCallbacks callbacks, int64_t prof
     CefRefPtr<OrionCefClient> client = new OrionCefClient(entry);
 
     auto browser = CefBrowserHost::CreateBrowserSync(
-        windowInfo, client, url, browserSettings, nullptr, nullptr);
+        windowInfo, client, url, browserSettings, nullptr, g_request_context);
 
     if (!browser) {
         orion::log_error("CEF: CreateBrowserSync failed");
@@ -1542,6 +1576,7 @@ void cleanBrowserEngine()
         // tasks and tears down the Chrome profile, flushing cookies and
         // site data to disk.
         g_cef_initialized = false;
+        g_request_context = nullptr;
         orion::log_info("CEF: all browsers closed; calling CefShutdown");
         CefShutdown();
         orion::log_info("CEF: CefShutdown complete");
@@ -1557,7 +1592,7 @@ void cleanBrowserEngine()
 
 HRESULT loadURL(HWND hwnd, const std::string& url)
 {
-    orion::log_info("CEF: loadURL — hwnd=%p url='%s'", hwnd, url.c_str());
+    orion::log_debug("CEF: loadURL — hwnd=%p", hwnd);
     auto it = g_browsers.find(hwnd);
     if (it == g_browsers.end()) {
         orion::log_error("CEF: loadURL — hwnd not in g_browsers (size=%zu)", g_browsers.size());
@@ -1634,7 +1669,7 @@ static void applyEnginePreferences()
 {
     if (!g_cef_initialized)
         return;  // applied after CefInitialize instead
-    CefRefPtr<CefRequestContext> context = CefRequestContext::GetGlobalContext();
+    CefRefPtr<CefRequestContext> context = g_request_context;
     if (!context)
         return;
 
