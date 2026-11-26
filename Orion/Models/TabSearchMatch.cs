@@ -6,7 +6,7 @@ namespace Orion
 {
     public sealed record TabSearchMatch(BrowserTab? Tab, TabGroup Group)
     {
-        public string Title => Tab == null ? WorkspaceName(Group)
+        public string Title => Tab == null ? Group.WorkspaceName
             : string.IsNullOrWhiteSpace(Tab.Title) ? Tab.Url : Tab.Title;
 
         public string Context
@@ -16,7 +16,7 @@ namespace Orion
                 if (Tab == null)
                     return "Workspace";
 
-                string workspace = WorkspaceName(Group);
+                string workspace = Group.WorkspaceName;
                 if (!Uri.TryCreate(Tab.Url, UriKind.Absolute, out Uri? uri))
                     return workspace;
 
@@ -33,14 +33,14 @@ namespace Orion
             TabGroup[] ordered = [.. groups.OrderByDescending(group => group == active)];
             foreach (TabGroup group in ordered)
             {
-                if (Contains(WorkspaceName(group), query))
+                if (Contains(group.WorkspaceName, query))
                     yield return new TabSearchMatch(null, group);
             }
 
             HashSet<long> seenPins = [];
             foreach (TabGroup group in ordered)
             {
-                bool matchesGroup = Contains(WorkspaceName(group), query);
+                bool matchesGroup = Contains(group.WorkspaceName, query);
                 foreach (BrowserTab tab in group.FlattenedTabs)
                 {
                     var match = new TabSearchMatch(tab, group);
@@ -56,8 +56,6 @@ namespace Orion
                 }
             }
         }
-
-        private static string WorkspaceName(TabGroup group) => group.IsSaved ? group.Name : "This Window";
 
         private static bool Contains(string text, string query) => text.Contains(query, StringComparison.OrdinalIgnoreCase);
     }

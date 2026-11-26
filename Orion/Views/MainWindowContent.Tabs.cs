@@ -323,11 +323,7 @@ namespace Orion
             SyncTabStripSelection();
         }
 
-        private void VerticalTabClose_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button button && button.Tag is BrowserTab tab)
-                CloseTab(tab);
-        }
+        private void RailTabCloseRequested(object? sender, BrowserTab tab) => CloseTab(tab);
 
         private void VerticalTab_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {

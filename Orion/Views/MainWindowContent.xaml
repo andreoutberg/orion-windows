@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <UserControl
     x:Class="Orion.MainWindowContent"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -86,6 +86,7 @@
         <!--  Flat vertical tab template (no nesting)  -->
         <DataTemplate x:Key="FlatVerticalTabTemplate" x:DataType="models:BrowserTab">
             <TreeViewItem
+                AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
                 IsExpanded="False"
                 PointerCaptureLost="Tab_PointerExited"
                 PointerEntered="Tab_PointerEntered"
@@ -93,67 +94,7 @@
                 PointerPressed="VerticalTab_PointerPressed"
                 RightTapped="VerticalTab_RightTapped"
                 Visibility="{x:Bind VerticalTabVisibility, Mode=OneWay}">
-                <Grid
-                    MinHeight="28"
-                    Padding="0,0"
-                    CornerRadius="4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Border
-                        Width="20"
-                        Height="20"
-                        Margin="0,0,8,0"
-                        VerticalAlignment="Center"
-                        Background="{ThemeResource ControlFillColorDefaultBrush}"
-                        CornerRadius="4"
-                        Visibility="{x:Bind FaviconVisibility, Mode=OneWay}">
-                        <Grid>
-                            <TextBlock
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                FontFamily="Segoe MDL2 Assets"
-                                FontSize="10"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Text="&#xE71B;"
-                                Visibility="{x:Bind FaviconImageVisibility, Mode=OneWay}" />
-                            <Image
-                                Width="16"
-                                Height="16"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Source="{x:Bind FaviconImage, Mode=OneWay}"
-                                Stretch="UniformToFill"
-                                Visibility="{x:Bind FaviconImageVisibility, Mode=OneWay}" />
-                            <ProgressRing
-                                Width="16"
-                                Height="16"
-                                IsActive="{x:Bind ShowsLoadingIndicator, Mode=OneWay}" />
-                        </Grid>
-                    </Border>
-                    <TextBlock
-                        Grid.Column="1"
-                        VerticalAlignment="Center"
-                        FontSize="13"
-                        Opacity="{x:Bind TitleOpacity, Mode=OneWay}"
-                        Text="{x:Bind Title, Mode=OneWay}"
-                        TextTrimming="CharacterEllipsis"
-                        Visibility="{x:Bind TitleVisibility, Mode=OneWay}" />
-                    <Button
-                        Grid.Column="2"
-                        Width="20"
-                        Height="20"
-                        Padding="0"
-                        VerticalAlignment="Center"
-                        Click="VerticalTabClose_Click"
-                        CornerRadius="4"
-                        Tag="{x:Bind}"
-                        Visibility="{x:Bind CloseButtonVisibility, Mode=OneWay}">
-                        <FontIcon FontSize="10" Glyph="&#xE711;" />
-                    </Button>
-                </Grid>
+                <controls:RailTabRow CloseRequested="RailTabCloseRequested" DataContext="{x:Bind}" />
             </TreeViewItem>
         </DataTemplate>
     </UserControl.Resources>
@@ -587,6 +528,7 @@
 
             <Grid x:Name="SidebarPane" Visibility="Collapsed">
                 <Grid.Resources>
+                    <SolidColorBrush x:Key="TreeViewItemBackgroundSelected" Color="{ThemeResource OrionRailSelectionColor}" />
                     <SolidColorBrush x:Key="TreeViewItemSelectionIndicatorForeground" Color="{ThemeResource OrionChromeAccentColor}" />
                     <SolidColorBrush x:Key="TreeViewItemSelectionIndicatorForegroundPointerOver" Color="{ThemeResource OrionChromePointerSelectionColor}" />
                     <StaticResource x:Key="TreeViewItemSelectionIndicatorForegroundPressed" ResourceKey="TreeViewItemSelectionIndicatorForegroundPointerOver" />
@@ -608,9 +550,6 @@
                     HorizontalContentAlignment="Stretch"
                     AutomationProperties.HelpText="{x:Bind ViewModel.ActiveGroupName, Mode=OneWay}"
                     AutomationProperties.Name="Switch workspace"
-                    Background="{ThemeResource OrionChromeWellBrush}"
-                    BorderBrush="{ThemeResource OrionChromeLineBrush}"
-                    BorderThickness="1"
                     Click="TabGroupSwitcherButton_Click"
                     Style="{StaticResource OrionChromeButtonStyle}">
                     <ToolTipService.ToolTip>
@@ -654,48 +593,12 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0" Padding="12,0,8,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock
-                            x:Name="SidebarPageLabel"
-                            VerticalAlignment="Center"
-                            FontSize="12"
-                            FontWeight="SemiBold"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Button
-                            x:Name="TabLayoutButton"
-                            Grid.Column="1"
-                            Width="32"
-                            Height="32"
-                            Padding="0"
-                            AutomationProperties.Name="Tab layout"
-                            Style="{StaticResource OrionChromeButtonStyle}"
-                            ToolTipService.ToolTip="Tab layout">
-                            <FontIcon FontSize="14" Glyph="&#xE89A;" />
-                            <Button.Flyout>
-                                <MenuFlyout>
-                                    <RadioMenuFlyoutItem
-                                        x:Name="StandardLayoutMenuItem"
-                                        Click="TabLayoutMenuItem_Click"
-                                        GroupName="TabLayout"
-                                        Text="Standard tabs" />
-                                    <RadioMenuFlyoutItem
-                                        x:Name="CompactLayoutMenuItem"
-                                        Click="TabLayoutMenuItem_Click"
-                                        GroupName="TabLayout"
-                                        Text="Compact tabs" />
-                                    <RadioMenuFlyoutItem
-                                        x:Name="VerticalLayoutMenuItem"
-                                        Click="TabLayoutMenuItem_Click"
-                                        GroupName="TabLayout"
-                                        Text="Vertical tabs only" />
-                                </MenuFlyout>
-                            </Button.Flyout>
-                        </Button>
-                    </Grid>
+                    <TextBlock
+                        x:Name="SidebarPageLabel"
+                        Margin="12,6,8,6"
+                        FontSize="12"
+                        FontWeight="SemiBold"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
                     <!--  Tab List Area  -->
                     <Border Grid.Row="1">
@@ -708,6 +611,14 @@
                                 Visibility="{x:Bind ViewModel.SidebarTabsModeVisibility, Mode=OneWay}">
                                 <StackPanel Orientation="Vertical" Spacing="4">
                                     <StackPanel x:Name="WorkspacePinFolderSections" Spacing="4" />
+                                    <TextBlock
+                                        x:Name="OpenTabsSectionLabel"
+                                        Margin="6,6,0,0"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="Tabs"
+                                        Visibility="Collapsed" />
                                     <!--  Vertical tabs (visible in vertical mode)  -->
                                     <TreeView
                                         x:Name="VerticalTabStrip"
@@ -720,6 +631,7 @@
                                         <TreeView.ItemTemplate>
                                             <DataTemplate x:DataType="models:BrowserTab">
                                                 <TreeViewItem
+                                                    AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
                                                     IsExpanded="True"
                                                     ItemsSource="{x:Bind Children, Mode=OneWay}"
                                                     PointerCaptureLost="Tab_PointerExited"
@@ -728,87 +640,7 @@
                                                     PointerPressed="VerticalTab_PointerPressed"
                                                     RightTapped="VerticalTab_RightTapped"
                                                     Visibility="{x:Bind VerticalTabVisibility, Mode=OneWay}">
-                                                    <Grid
-                                                        MinHeight="28"
-                                                        Padding="0,0"
-                                                        CornerRadius="4">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="Auto" />
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <Grid.RowDefinitions>
-                                                            <RowDefinition Height="Auto" />
-                                                            <RowDefinition Height="Auto" />
-                                                        </Grid.RowDefinitions>
-                                                        <!--  Favicon  -->
-                                                        <Border
-                                                            Grid.RowSpan="2"
-                                                            Width="20"
-                                                            Height="20"
-                                                            Margin="0,0,8,0"
-                                                            VerticalAlignment="Center"
-                                                            Background="{ThemeResource ControlFillColorDefaultBrush}"
-                                                            CornerRadius="4"
-                                                            Visibility="{x:Bind FaviconVisibility, Mode=OneWay}">
-                                                            <Grid>
-                                                                <TextBlock
-                                                                    HorizontalAlignment="Center"
-                                                                    VerticalAlignment="Center"
-                                                                    FontFamily="Segoe MDL2 Assets"
-                                                                    FontSize="10"
-                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                    Text="&#xE71B;"
-                                                                    Visibility="{x:Bind FaviconImageVisibility, Mode=OneWay}" />
-                                                                <Image
-                                                                    Width="16"
-                                                                    Height="16"
-                                                                    HorizontalAlignment="Center"
-                                                                    VerticalAlignment="Center"
-                                                                    Source="{x:Bind FaviconImage, Mode=OneWay}"
-                                                                    Stretch="UniformToFill"
-                                                                    Visibility="{x:Bind FaviconImageVisibility, Mode=OneWay}" />
-                                                                <ProgressRing
-                                                                    Width="16"
-                                                                    Height="16"
-                                                                    IsActive="{x:Bind ShowsLoadingIndicator, Mode=OneWay}" />
-                                                            </Grid>
-                                                        </Border>
-                                                        <!--  Title  -->
-                                                        <TextBlock
-                                                            Grid.Row="0"
-                                                            Grid.Column="1"
-                                                            VerticalAlignment="Center"
-                                                            FontSize="13"
-                                                            Opacity="{x:Bind TitleOpacity, Mode=OneWay}"
-                                                            Text="{x:Bind Title, Mode=OneWay}"
-                                                            TextTrimming="CharacterEllipsis"
-                                                            Visibility="{x:Bind TitleVisibility, Mode=OneWay}" />
-                                                        <!--  URL  -->
-                                                        <!--
-                                                <TextBlock
-                                                    Grid.Row="1"
-                                                    Grid.Column="1"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="11"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Text="{x:Bind Url, Mode=OneWay}"
-                                                    TextTrimming="CharacterEllipsis" />-->
-                                                        <!--  Close button (hidden for pinned tabs)  -->
-                                                        <Button
-                                                            Grid.RowSpan="2"
-                                                            Grid.Column="2"
-                                                            Width="20"
-                                                            Height="20"
-                                                            Padding="0"
-                                                            VerticalAlignment="Center"
-                                                            Click="VerticalTabClose_Click"
-                                                            CornerRadius="4"
-                                                            Tag="{x:Bind}"
-                                                            Visibility="{x:Bind CloseButtonVisibility, Mode=OneWay}">
-                                                            <FontIcon FontSize="10" Glyph="&#xE711;" />
-                                                        </Button>
-                                                    </Grid>
+                                                    <controls:RailTabRow CloseRequested="RailTabCloseRequested" DataContext="{x:Bind}" />
                                                 </TreeViewItem>
                                             </DataTemplate>
                                         </TreeView.ItemTemplate>
@@ -1033,15 +865,28 @@
                                     AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
                                     RightTapped="FoldedTab_RightTapped"
                                     ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}">
-                                    <FontIcon
-                                        FontSize="13"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Glyph="&#xE774;" />
-                                    <Image
+                                    <Path
                                         Width="16"
                                         Height="16"
                                         AutomationProperties.AccessibilityView="Raw"
-                                        Source="{x:Bind FaviconImage, Mode=OneWay}" />
+                                        Data="{StaticResource SearchPlusMarkGeometry}"
+                                        Stretch="Uniform"
+                                        Stroke="{ThemeResource OrionChromeAccentBrush}"
+                                        StrokeEndLineCap="Round"
+                                        StrokeStartLineCap="Round"
+                                        StrokeThickness="1.3"
+                                        Visibility="{x:Bind StartPageIconVisibility, Mode=OneWay}" />
+                                    <Grid Visibility="{x:Bind SiteIconVisibility, Mode=OneWay}">
+                                        <FontIcon
+                                            FontSize="13"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Glyph="&#xE774;" />
+                                        <Image
+                                            Width="16"
+                                            Height="16"
+                                            AutomationProperties.AccessibilityView="Raw"
+                                            Source="{x:Bind FaviconImage, Mode=OneWay}" />
+                                    </Grid>
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>

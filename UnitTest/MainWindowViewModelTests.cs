@@ -53,6 +53,24 @@ namespace Orion
         }
 
         [Fact]
+        public void WorkspaceHeaderUsesTheNameWithoutTheTabCount()
+        {
+            var vm = new MainWindowViewModel(TestProfile);
+            Assert.Equal("This Window", vm.ActiveGroupName);
+
+            TabGroup named = vm.CreateTabGroup(forceEmpty: true).Model;
+            var changed = new List<string>();
+            vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName!);
+            named.Name = "Research";
+            _ = vm.CreateNewTab("https://example.com");
+
+            Assert.Equal("Research", vm.ActiveGroupName);
+            Assert.Contains(nameof(MainWindowViewModel.ActiveGroupName), changed);
+            vm.SelectTabGroup(vm.UnsavedTabGroup!);
+            Assert.Equal("This Window", vm.ActiveGroupName);
+        }
+
+        [Fact]
         public void ChangingPinScope_MovesOneRowAndUpdatesEveryWorkspace()
         {
             var vm = new MainWindowViewModel(TestProfile);

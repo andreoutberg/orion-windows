@@ -18,6 +18,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <TextBlock
@@ -34,6 +35,18 @@
                     GroupSelected="InnerGroupList_GroupSelected"
                     GroupsReordered="InnerGroupList_GroupsReordered"
                     NewGroupRequested="InnerGroupList_NewGroupRequested" />
+                <ComboBox
+                    x:Name="TabLayoutPicker"
+                    Grid.Row="2"
+                    Margin="8,8,8,0"
+                    HorizontalAlignment="Stretch"
+                    Header="Tab layout"
+                    SelectedValuePath="Tag"
+                    SelectionChanged="TabLayoutPicker_SelectionChanged">
+                    <ComboBoxItem Content="Standard tabs" Tag="standard" />
+                    <ComboBoxItem Content="Compact tabs" Tag="compact" />
+                    <ComboBoxItem Content="Vertical tabs only" Tag="vertical" />
+                </ComboBox>
             </Grid>
         </Flyout>
     </FlyoutBase.AttachedFlyout>

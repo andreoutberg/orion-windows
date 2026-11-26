@@ -1,0 +1,72 @@
+﻿<UserControl
+    x:Class="Orion.RailTabRow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    HorizontalContentAlignment="Stretch"
+    IsTabStop="False"
+    Loaded="Row_Loaded"
+    Unloaded="Row_Unloaded">
+    <Grid MinHeight="30" Background="Transparent">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="24" />
+        </Grid.ColumnDefinitions>
+        <Grid
+            Width="16"
+            Height="16"
+            Margin="0,0,8,0"
+            VerticalAlignment="Center"
+            Visibility="{Binding FaviconVisibility}">
+            <Path
+                AutomationProperties.AccessibilityView="Raw"
+                Data="{StaticResource SearchPlusMarkGeometry}"
+                Stretch="Uniform"
+                Stroke="{ThemeResource OrionChromeAccentBrush}"
+                StrokeEndLineCap="Round"
+                StrokeStartLineCap="Round"
+                StrokeThickness="1.3"
+                Visibility="{Binding StartPageIconVisibility}" />
+            <Grid Visibility="{Binding SiteIconVisibility}">
+                <FontIcon
+                    FontSize="13"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Glyph="&#xE774;"
+                    Visibility="{Binding FaviconPlaceholderVisibility}" />
+                <Image
+                    AutomationProperties.AccessibilityView="Raw"
+                    Source="{Binding FaviconImage}"
+                    Stretch="Uniform"
+                    Visibility="{Binding FaviconImageVisibility}" />
+                <ProgressRing
+                    Width="16"
+                    Height="16"
+                    IsActive="{Binding ShowsLoadingIndicator}" />
+            </Grid>
+        </Grid>
+        <TextBlock
+            Grid.Column="1"
+            VerticalAlignment="Center"
+            FontSize="13"
+            Opacity="{Binding TitleOpacity}"
+            Text="{Binding Title}"
+            TextTrimming="CharacterEllipsis"
+            Visibility="{Binding TitleVisibility}" />
+        <Grid Grid.Column="2" Visibility="{Binding CloseButtonVisibility}">
+            <Button
+                x:Name="CloseTabButton"
+                Width="22"
+                Height="22"
+                Padding="0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Close tab"
+                Click="CloseTabButton_Click"
+                Style="{StaticResource OrionChromeButtonStyle}"
+                ToolTipService.ToolTip="Close tab"
+                Visibility="Collapsed">
+                <FontIcon FontSize="10" Glyph="&#xE711;" />
+            </Button>
+        </Grid>
+    </Grid>
+</UserControl>

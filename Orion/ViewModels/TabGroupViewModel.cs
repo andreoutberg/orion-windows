@@ -34,6 +34,7 @@ namespace Orion
             _previouslyActiveTab = oldValue;
 
         public string DisplayName => Model.DisplayName;
+        public string WorkspaceName => Model.WorkspaceName;
 
         public TabGroupViewModel(TabGroup model)
         {
@@ -45,6 +46,8 @@ namespace Orion
         {
             if (e.PropertyName == nameof(TabGroup.DisplayName))
                 OnPropertyChanged(nameof(DisplayName));
+            else if (e.PropertyName == nameof(TabGroup.WorkspaceName))
+                OnPropertyChanged(nameof(WorkspaceName));
         }
 
         /// <summary>

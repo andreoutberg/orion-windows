@@ -6,6 +6,7 @@
             <SolidColorBrush x:Key="OrionChromeWellBrush" Color="#E6F4F1F5" />
             <SolidColorBrush x:Key="OrionChromeLineBrush" Color="#FFE6E2E5" />
             <SolidColorBrush x:Key="OrionChromeSelectionBrush" Color="#FFECE8F3" />
+            <Color x:Key="OrionRailSelectionColor">#10252534</Color>
             <Color x:Key="OrionChromeAccentColor">#FF7253B4</Color>
             <StaticResource x:Key="OrionChromePointerSelectionColor" ResourceKey="OrionChromeAccentColor" />
             <StaticResource x:Key="OrionChromeFoldedSelectionColor" ResourceKey="OrionChromeAccentColor" />
@@ -17,6 +18,7 @@
             <SolidColorBrush x:Key="OrionChromeWellBrush" Color="#E62A2730" />
             <SolidColorBrush x:Key="OrionChromeLineBrush" Color="#FF37333D" />
             <SolidColorBrush x:Key="OrionChromeSelectionBrush" Color="#FF393042" />
+            <Color x:Key="OrionRailSelectionColor">#1AE1D6F4</Color>
             <Color x:Key="OrionChromeAccentColor">#FFC0A6F5</Color>
             <StaticResource x:Key="OrionChromePointerSelectionColor" ResourceKey="OrionChromeAccentColor" />
             <StaticResource x:Key="OrionChromeFoldedSelectionColor" ResourceKey="OrionChromeAccentColor" />
@@ -28,12 +30,35 @@
             <SolidColorBrush x:Key="OrionChromeWellBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="OrionChromeLineBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
             <SolidColorBrush x:Key="OrionChromeSelectionBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <StaticResource x:Key="OrionRailSelectionColor" ResourceKey="SystemColorWindowColor" />
             <StaticResource x:Key="OrionChromeAccentColor" ResourceKey="SystemColorHighlightColor" />
             <StaticResource x:Key="OrionChromePointerSelectionColor" ResourceKey="SystemColorButtonTextColor" />
             <StaticResource x:Key="OrionChromeFoldedSelectionColor" ResourceKey="SystemColorHighlightTextColor" />
             <SolidColorBrush x:Key="OrionChromeAccentBrush" Color="{ThemeResource OrionChromeAccentColor}" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
+
+    <PathGeometry x:Key="SearchPlusMarkGeometry">
+        <PathFigure IsClosed="True" StartPoint="13,8">
+            <ArcSegment
+                Point="2,8"
+                Size="5.5,5.5"
+                SweepDirection="Clockwise" />
+            <ArcSegment
+                Point="13,8"
+                Size="5.5,5.5"
+                SweepDirection="Clockwise" />
+        </PathFigure>
+        <PathFigure StartPoint="11.5,12">
+            <LineSegment Point="16.5,17" />
+        </PathFigure>
+        <PathFigure StartPoint="17,1">
+            <LineSegment Point="17,7" />
+        </PathFigure>
+        <PathFigure StartPoint="14,4">
+            <LineSegment Point="20,4" />
+        </PathFigure>
+    </PathGeometry>
 
     <Style
         x:Key="OrionChromeButtonStyle"

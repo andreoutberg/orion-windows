@@ -76,7 +76,12 @@ namespace Orion
         public partial string Title { get; set; } = "Blank Tab";
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(StartPageIconVisibility))]
+        [NotifyPropertyChangedFor(nameof(SiteIconVisibility))]
         public partial string Url { get; set; } = "about:blank";
+
+        public Visibility StartPageIconVisibility => IsStartPageUrl(Url) ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility SiteIconVisibility => IsStartPageUrl(Url) ? Visibility.Collapsed : Visibility.Visible;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(DisplayHeader))]
@@ -132,6 +137,7 @@ namespace Orion
         [NotifyPropertyChangedFor(nameof(ShowsLoadingIndicator))]
         [NotifyPropertyChangedFor(nameof(FaviconIconSource))]
         [NotifyPropertyChangedFor(nameof(FaviconImageVisibility))]
+        [NotifyPropertyChangedFor(nameof(FaviconPlaceholderVisibility))]
         public partial bool IsLoading { get; set; }
 
         /// <summary>
@@ -142,6 +148,7 @@ namespace Orion
 
         /// <summary>Favicon image (or placeholder) visibility; hidden while the spinner shows.</summary>
         public Visibility FaviconImageVisibility => IsLoading ? Visibility.Collapsed : Visibility.Visible;
+        public Visibility FaviconPlaceholderVisibility => IsLoading || FaviconImage != null ? Visibility.Collapsed : Visibility.Visible;
 
         /// <summary>
         /// Latest captured page thumbnail as encoded JPEG bytes; null until
@@ -202,6 +209,7 @@ namespace Orion
         /// </summary>
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(FaviconIconSource))]
+        [NotifyPropertyChangedFor(nameof(FaviconPlaceholderVisibility))]
         public partial ImageSource? FaviconImage { get; set; }
 
         public static bool GlobalShowFavicons { get; set; } = true;

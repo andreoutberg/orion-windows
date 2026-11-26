@@ -11,6 +11,7 @@ namespace Orion
         public event EventHandler? NewGroupRequested;
         public event EventHandler<GroupRenamedEventArgs>? GroupRenamed;
         public event EventHandler<TabGroup>? GroupsReordered;
+        public event EventHandler<TabLayout>? TabLayoutChanged;
 
         /// <summary>
         /// Context flyout factory, forwarded to the inner TabGroupListPanel.
@@ -29,10 +30,12 @@ namespace Orion
 
         public TabGroupSwitcherPopup() => InitializeComponent();
 
-        public void ShowBelow(FrameworkElement anchor, TabGroup? unsavedGroup, TabGroup? selectedGroup, bool animationsEnabled)
+        public void ShowBelow(FrameworkElement anchor, TabGroup? unsavedGroup, TabGroup? selectedGroup,
+            TabLayout layout, bool animationsEnabled)
         {
             InnerGroupList.UnsavedTabGroup = unsavedGroup;
             InnerGroupList.SelectedGroup = selectedGroup;
+            TabLayoutPicker.SelectedValue = layout.ToString();
             SwitcherFlyout.AreOpenCloseAnimationsEnabled = animationsEnabled;
             SwitcherFlyout.ShowAt(anchor);
         }
@@ -46,5 +49,11 @@ namespace Orion
         private void InnerGroupList_GroupsReordered(object? sender, TabGroup e) => GroupsReordered?.Invoke(this, e);
 
         private void InnerGroupList_NewGroupRequested(object? sender, EventArgs e) => NewGroupRequested?.Invoke(this, EventArgs.Empty);
+
+        private void TabLayoutPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (TabLayoutPicker.SelectedValue is string value && Enum.TryParse(value, out TabLayout layout))
+                TabLayoutChanged?.Invoke(this, layout);
+        }
     }
 }

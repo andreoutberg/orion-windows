@@ -24,7 +24,9 @@ for the visual and interaction decisions.
 ### Workspaces and pins
 
 Choose a saved tab group from the **Workspaces** switcher. Each window keeps
-the tab you last visited in each workspace. From a tab's context menu, choose
+the tab you last visited in each workspace. The active workspace name heads
+the rail, and **Tab layout** is in its menu. Close buttons in the expanded
+rail appear when you hover or move keyboard focus to a tab. From a tab's context menu, choose
 **Pin to this workspace** for a named workspace, or **Pin across workspaces**
 to show the pin throughout the profile. Existing pins keep their scope on
 upgrade. Pins reopen their saved page. **Reset to saved page** and **Use current
@@ -71,7 +73,7 @@ review and merge to the fork's default branch, tag the reviewed commit with
 against that tag with `draft_release` enabled.
 
 ```powershell
-gh workflow run windows-preview.yml --ref v0.2.0-searchplus.1 -f draft_release=true
+gh workflow run windows-preview.yml --ref v0.2.1-searchplus.1 -f draft_release=true
 ```
 
 Check the draft's tag, attached checksum and ZIP's `BUILDINFO.json` against

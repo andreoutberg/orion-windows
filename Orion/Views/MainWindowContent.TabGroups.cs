@@ -175,11 +175,12 @@ namespace Orion
                 TabGroupSwitcher.NewGroupRequested += OnSwitcherNewGroup;
                 TabGroupSwitcher.GroupRenamed += OnSwitcherGroupRenamed;
                 TabGroupSwitcher.GroupsReordered += SidebarGroupsReordered;
+                TabGroupSwitcher.TabLayoutChanged += OnWorkspaceTabLayoutChanged;
                 _switcherEventsWired = true;
             }
 
             TabGroupSwitcher.ShowBelow(anchor, ViewModel.UnsavedTabGroup, ViewModel.ActiveGroup?.Model,
-                _chromeMotionSettings.AnimationsEnabled);
+                ViewModel.TabLayout, _chromeMotionSettings.AnimationsEnabled);
         }
 
         private void OnSwitcherGroupSelected(object? sender, TabGroup group)

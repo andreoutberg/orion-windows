@@ -80,6 +80,8 @@ namespace Orion
         {
             _renderedFolderMembers = members;
             WorkspacePinFolderSections.Children.Clear();
+            OpenTabsSectionLabel.Visibility = _pinFolderGroup?.PinFolders.Count > 0
+                ? Visibility.Visible : Visibility.Collapsed;
             if (_pinFolderGroup is not { } group)
                 return;
 

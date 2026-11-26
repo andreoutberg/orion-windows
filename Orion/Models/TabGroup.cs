@@ -36,12 +36,14 @@ namespace Orion
         }
 
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(DisplayName))]
+        [NotifyPropertyChangedFor(nameof(DisplayName), nameof(WorkspaceName))]
         public partial string Name { get; set; } = string.Empty;
 
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(DisplayName))]
+        [NotifyPropertyChangedFor(nameof(DisplayName), nameof(WorkspaceName))]
         public partial bool IsSaved { get; set; }
+
+        public string WorkspaceName => IsSaved && !string.IsNullOrWhiteSpace(Name) ? Name : "This Window";
 
         [ObservableProperty]
         public partial int Order { get; set; }

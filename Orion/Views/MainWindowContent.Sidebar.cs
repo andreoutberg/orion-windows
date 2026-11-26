@@ -55,8 +55,6 @@ namespace Orion
             {
                 if (e.PropertyName == nameof(MainWindowViewModel.SelectedSidebarPage))
                     UpdateSidebarNavHighlight(activeBrush, transparentBrush);
-                if (e.PropertyName == nameof(MainWindowViewModel.TabLayout))
-                    UpdateTabLayoutMenu();
                 if (e.PropertyName is nameof(MainWindowViewModel.TabLayout)
                     or nameof(MainWindowViewModel.ShowSidebar)
                     or nameof(MainWindowViewModel.IsChromeHiddenForFullscreen))
@@ -65,7 +63,6 @@ namespace Orion
                 }
             };
             UpdateSidebarNavHighlight(activeBrush, transparentBrush);
-            UpdateTabLayoutMenu();
             UpdateSidebarPresentation();
         }
 
@@ -73,6 +70,7 @@ namespace Orion
         {
             SidebarPage selected = ViewModel.SelectedSidebarPage;
             SidebarPageLabel.Text = selected.DisplayName();
+            SidebarPageLabel.Visibility = selected == SidebarPage.tabs ? Visibility.Collapsed : Visibility.Visible;
             foreach ((SidebarPage page, Button button) in _sidebarNavButtons)
             {
                 button.Background = page == selected ? activeBrush : transparentBrush;
@@ -94,28 +92,14 @@ namespace Orion
                 InitializeReadingList();
         }
 
-        private void TabLayoutMenuItem_Click(object sender, RoutedEventArgs e)
+        private void OnWorkspaceTabLayoutChanged(object? sender, TabLayout layout)
         {
-            if (ReferenceEquals(sender, StandardLayoutMenuItem))
-            {
-                ViewModel.TabLayout = TabLayout.standard;
-            }
-            else if (ReferenceEquals(sender, CompactLayoutMenuItem))
-            {
-                ViewModel.TabLayout = TabLayout.compact;
-            }
-            else if (ReferenceEquals(sender, VerticalLayoutMenuItem))
-            {
-                ViewModel.TabLayout = TabLayout.vertical;
-                SetSidebarPage(SidebarPage.tabs);
-            }
-        }
+            if (ViewModel.TabLayout == layout)
+                return;
 
-        private void UpdateTabLayoutMenu()
-        {
-            StandardLayoutMenuItem.IsChecked = ViewModel.TabLayout == TabLayout.standard;
-            CompactLayoutMenuItem.IsChecked = ViewModel.TabLayout == TabLayout.compact;
-            VerticalLayoutMenuItem.IsChecked = ViewModel.TabLayout == TabLayout.vertical;
+            ViewModel.TabLayout = layout;
+            if (layout == TabLayout.vertical)
+                SetSidebarPage(SidebarPage.tabs);
         }
 
         private void SidebarSettings_Click(object sender, RoutedEventArgs e)

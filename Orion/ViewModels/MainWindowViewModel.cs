@@ -562,9 +562,9 @@ namespace Orion
         }
 
         /// <summary>
-        /// Display label for the active group (name if saved, tab count if unsaved).
+        /// Name used in the workspace switcher above the tab rail.
         /// </summary>
-        public string ActiveGroupName => ActiveGroup?.Model.DisplayName ?? string.Empty;
+        public string ActiveGroupName => ActiveGroup?.WorkspaceName ?? string.Empty;
 
         /// <summary>
         /// Visibility for horizontal tab strip (hidden in vertical layout).
@@ -1369,11 +1369,10 @@ namespace Orion
                     OrionBackend.UpdateTabGroupSelectedTab(vm.Model.Id, tab.Id);
             }
 
-            if (e.PropertyName == nameof(TabGroupViewModel.DisplayName))
-            {
+            if (e.PropertyName == nameof(TabGroupViewModel.WorkspaceName))
                 OnPropertyChanged(nameof(ActiveGroupName));
+            else if (e.PropertyName == nameof(TabGroupViewModel.DisplayName))
                 OnPropertyChanged(nameof(SidebarHeaderText));
-            }
         }
 
         internal string GetSearchUrlTemplate() => GetSearchEngine().UrlTemplate;
