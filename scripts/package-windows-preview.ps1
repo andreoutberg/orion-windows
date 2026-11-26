@@ -47,6 +47,8 @@ try {
         (Join-Path $PSScriptRoot 'launch-windows-preview.cmd'), 'Open Orion Search+ Preview.cmd')
     [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive,
         (Join-Path $root 'docs_ai/windows-preview-release.md'), 'PREVIEW.md')
+    [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive,
+        (Join-Path $root 'docs_ai/searchplus-design.md'), 'searchplus-design.md')
     foreach ($notice in @(
         @{ Path = 'LICENSE'; Name = 'Orion.txt' },
         @{ Path = 'vendor/cef/LICENSE.txt'; Name = 'CEF.txt' },
