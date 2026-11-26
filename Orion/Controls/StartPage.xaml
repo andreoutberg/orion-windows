@@ -20,18 +20,14 @@
                 HorizontalAlignment="Center"
                 Background="{ThemeResource OrionChromeSelectionBrush}"
                 CornerRadius="15">
-                <Path
+                <ContentPresenter
                     Width="23"
                     Height="23"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     AutomationProperties.AccessibilityView="Raw"
-                    Data="{StaticResource SearchPlusMarkGeometry}"
-                    Stretch="Uniform"
-                    Stroke="{ThemeResource OrionChromeAccentBrush}"
-                    StrokeEndLineCap="Round"
-                    StrokeStartLineCap="Round"
-                    StrokeThickness="1.75" />
+                    Content="Search+"
+                    ContentTemplate="{StaticResource SearchPlusMarkTemplate}" />
             </Border>
             <Button
                 MinWidth="240"

@@ -38,27 +38,16 @@
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
-    <PathGeometry x:Key="SearchPlusMarkGeometry">
-        <PathFigure IsClosed="True" StartPoint="13,8">
-            <ArcSegment
-                Point="2,8"
-                Size="5.5,5.5"
-                SweepDirection="Clockwise" />
-            <ArcSegment
-                Point="13,8"
-                Size="5.5,5.5"
-                SweepDirection="Clockwise" />
-        </PathFigure>
-        <PathFigure StartPoint="11.5,12">
-            <LineSegment Point="16.5,17" />
-        </PathFigure>
-        <PathFigure StartPoint="17,1">
-            <LineSegment Point="17,7" />
-        </PathFigure>
-        <PathFigure StartPoint="14,4">
-            <LineSegment Point="20,4" />
-        </PathFigure>
-    </PathGeometry>
+    <DataTemplate x:Key="SearchPlusMarkTemplate">
+        <Viewbox Stretch="Uniform">
+            <Path
+                Data="M 13,8 A 5.5,5.5 0 1 1 2,8 A 5.5,5.5 0 1 1 13,8 M 11.5,12 L 16.5,17 M 17,1 L 17,7 M 14,4 L 20,4"
+                Stroke="{ThemeResource OrionChromeAccentBrush}"
+                StrokeEndLineCap="Round"
+                StrokeStartLineCap="Round"
+                StrokeThickness="1.65" />
+        </Viewbox>
+    </DataTemplate>
 
     <Style
         x:Key="OrionChromeButtonStyle"

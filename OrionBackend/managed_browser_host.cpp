@@ -16,6 +16,10 @@ int startupError(const wchar_t* message, DWORD error)
 // already returned directly from CefExecuteProcess without loading .NET.
 int runManagedBrowser()
 {
+    // The CEF bootstrap is the actual process image. The managed apphost's
+    // manifest is activated for WinRT registration and does not set its DPI.
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
     const auto appDir = std::filesystem::path(moduleDir(nullptr)).parent_path().parent_path();
     const auto appExe = appDir / L"Orion.exe";
     const auto assembly = appDir / L"Orion.dll";
@@ -54,8 +58,12 @@ int runManagedBrowser()
     // or the .NET installation root (host/fxr/<version>/) for a shared runtime.
     const auto dotnetRoot = fxrDirectory == appDir ? appDir
         : fxrDirectory.parent_path().parent_path().parent_path();
+    const DPI_AWARENESS_CONTEXT previousDpi = SetThreadDpiAwarenessContext(
+        DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     const int result = run(argc, const_cast<const wchar_t**>(argv), appExe.c_str(),
                            dotnetRoot.c_str(), assembly.c_str());
+    if (previousDpi)
+        SetThreadDpiAwarenessContext(previousDpi);
     LocalFree(argv);
     DeactivateActCtx(0, cookie);
     ReleaseActCtx(actctx);

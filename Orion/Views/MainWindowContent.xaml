@@ -865,16 +865,12 @@
                                     AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
                                     RightTapped="FoldedTab_RightTapped"
                                     ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}">
-                                    <Path
+                                    <ContentPresenter
                                         Width="16"
                                         Height="16"
                                         AutomationProperties.AccessibilityView="Raw"
-                                        Data="{StaticResource SearchPlusMarkGeometry}"
-                                        Stretch="Uniform"
-                                        Stroke="{ThemeResource OrionChromeAccentBrush}"
-                                        StrokeEndLineCap="Round"
-                                        StrokeStartLineCap="Round"
-                                        StrokeThickness="1.3"
+                                        Content="Search+"
+                                        ContentTemplate="{StaticResource SearchPlusMarkTemplate}"
                                         Visibility="{x:Bind StartPageIconVisibility, Mode=OneWay}" />
                                     <Grid Visibility="{x:Bind SiteIconVisibility, Mode=OneWay}">
                                         <FontIcon

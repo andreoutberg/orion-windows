@@ -18,14 +18,10 @@
             Margin="0,0,8,0"
             VerticalAlignment="Center"
             Visibility="{Binding FaviconVisibility}">
-            <Path
+            <ContentPresenter
                 AutomationProperties.AccessibilityView="Raw"
-                Data="{StaticResource SearchPlusMarkGeometry}"
-                Stretch="Uniform"
-                Stroke="{ThemeResource OrionChromeAccentBrush}"
-                StrokeEndLineCap="Round"
-                StrokeStartLineCap="Round"
-                StrokeThickness="1.3"
+                Content="Search+"
+                ContentTemplate="{StaticResource SearchPlusMarkTemplate}"
                 Visibility="{Binding StartPageIconVisibility}" />
             <Grid Visibility="{Binding SiteIconVisibility}">
                 <FontIcon

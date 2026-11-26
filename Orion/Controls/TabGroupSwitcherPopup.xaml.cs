@@ -52,7 +52,7 @@ namespace Orion
 
         private void TabLayoutPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (TabLayoutPicker.SelectedValue is string value && Enum.TryParse(value, out TabLayout layout))
+            if (sender is ComboBox { SelectedValue: string value } && Enum.TryParse(value, out TabLayout layout))
                 TabLayoutChanged?.Invoke(this, layout);
         }
     }

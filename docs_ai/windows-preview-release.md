@@ -9,6 +9,10 @@ native executable for the browser process and its Chromium subprocesses. The
 Windows build uses the public Chromium distribution while Kagi's pinned WebKit
 source requires access to its build bucket.
 
+The Chromium bootstrap sets Per-Monitor V2 before WinUI creates the first
+window, so the rail and browser viewport follow Windows display scaling even
+when the app opens on Start Page.
+
 ## Try the portable package
 
 Extract the ZIP to a writable folder and open **Open Orion Search+ Preview.cmd**.
@@ -73,7 +77,7 @@ review and merge to the fork's default branch, tag the reviewed commit with
 against that tag with `draft_release` enabled.
 
 ```powershell
-gh workflow run windows-preview.yml --ref v0.2.1-searchplus.1 -f draft_release=true
+gh workflow run windows-preview.yml --ref v0.2.1-searchplus.2 -f draft_release=true
 ```
 
 Check the draft's tag, attached checksum and ZIP's `BUILDINFO.json` against
